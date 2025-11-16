@@ -11,6 +11,9 @@ import { BuildPhaseSystem } from "../systems/BuildPhaseSystem";
 import { PieceRenderer } from "../systems/PieceRenderer";
 import { DeployPhaseSystem } from "../systems/DeployPhaseSystem";
 import { CannonRenderer } from "../systems/CannonRenderer";
+import { CombatPhaseSystem } from "../systems/CombatPhaseSystem";
+import { ShipRenderer } from "../systems/ShipRenderer";
+import { ProjectileRenderer } from "../systems/ProjectileRenderer";
 
 const logger = createLogger("MainScene", true);
 
@@ -23,6 +26,9 @@ export class MainScene extends Phaser.Scene {
   private pieceRenderer!: PieceRenderer;
   private deploySystem!: DeployPhaseSystem;
   private cannonRenderer!: CannonRenderer;
+  private combatSystem!: CombatPhaseSystem;
+  private shipRenderer!: ShipRenderer;
+  private projectileRenderer!: ProjectileRenderer;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -65,6 +71,11 @@ export class MainScene extends Phaser.Scene {
     this.deploySystem = new DeployPhaseSystem(this.grid);
     this.cannonRenderer = new CannonRenderer(this, TILE_SIZE);
 
+    // Initialize combat system
+    this.combatSystem = new CombatPhaseSystem(this.grid);
+    this.shipRenderer = new ShipRenderer(this, TILE_SIZE);
+    this.projectileRenderer = new ProjectileRenderer(this, TILE_SIZE);
+
     // Initialize Phase Manager
     this.initializePhaseManager();
 
@@ -78,7 +89,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.5.0 - Deploy Phase & Cannon Placement",
+      "v0.6.0 - Combat Phase: Ships & Shooting",
       {
         fontSize: "14px",
         color: "#888888",
@@ -89,7 +100,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 55,
-      "BUILD: Arrows/R/Space | DEPLOY: Click to place cannons",
+      "BUILD: Arrows/R/Space | DEPLOY: Click cannons | COMBAT: Click to fire",
       {
         fontSize: "12px",
         color: "#888888",
@@ -134,7 +145,6 @@ export class MainScene extends Phaser.Scene {
     // Setup mouse controls with event listeners
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       const currentPhase = this.phaseManager.getCurrentPhase();
-      if (currentPhase !== GamePhase.DEPLOY) return;
 
       const now = this.time.now;
       if (now - this.lastClickTime < 200) return; // Debounce
@@ -143,12 +153,19 @@ export class MainScene extends Phaser.Scene {
       const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
       const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
 
-      if (pointer.leftButtonDown()) {
-        // Place cannon
-        this.deploySystem.placeCannon({ x: gridX, y: gridY });
-      } else if (pointer.rightButtonDown()) {
-        // Remove cannon
-        this.deploySystem.removeCannon({ x: gridX, y: gridY });
+      if (currentPhase === GamePhase.DEPLOY) {
+        if (pointer.leftButtonDown()) {
+          // Place cannon
+          this.deploySystem.placeCannon({ x: gridX, y: gridY });
+        } else if (pointer.rightButtonDown()) {
+          // Remove cannon
+          this.deploySystem.removeCannon({ x: gridX, y: gridY });
+        }
+      } else if (currentPhase === GamePhase.COMBAT) {
+        if (pointer.leftButtonDown()) {
+          // Find nearest cannon and fire at click position
+          this.fireNearestCannon({ x: gridX, y: gridY });
+        }
       }
     });
 
@@ -166,9 +183,11 @@ export class MainScene extends Phaser.Scene {
         this.deploySystem.startDeployPhase(this.enclosedCastles);
         break;
       case GamePhase.COMBAT:
-        logger.info("Entering COMBAT phase - TODO: Spawn ships");
+        logger.info("Entering COMBAT phase - Ships spawning");
         // Finalize cannon deployment
         this.cannons = this.deploySystem.finalizeDeployment();
+        // Start combat phase
+        this.combatSystem.startCombatPhase(this.cannons);
         break;
       case GamePhase.SCORING:
         logger.info("Entering SCORING phase - Validating territories");
@@ -329,11 +348,14 @@ export class MainScene extends Phaser.Scene {
       this.handleBuildPhaseInput();
     } else if (currentPhase === GamePhase.DEPLOY) {
       this.handleDeployPhaseInput();
+    } else if (currentPhase === GamePhase.COMBAT) {
+      this.combatSystem.update(delta);
     }
 
     // Render current piece or cannons
     this.renderCurrentPiece();
     this.renderCannons();
+    this.renderCombat();
 
     // Update HUD with current cannon counts
     const currentCannonCount = this.deploySystem.getCannons().length;
@@ -454,5 +476,51 @@ export class MainScene extends Phaser.Scene {
         this.mapOffsetY
       );
     }
+  }
+
+  private renderCombat(): void {
+    const currentPhase = this.phaseManager.getCurrentPhase();
+
+    // Clear previous rendering
+    this.shipRenderer.clear();
+    this.projectileRenderer.clear();
+
+    // Only render during COMBAT phase
+    if (currentPhase !== GamePhase.COMBAT) return;
+
+    // Render ships
+    const ships = this.combatSystem.getShips();
+    this.shipRenderer.renderShips(ships, this.mapOffsetX, this.mapOffsetY);
+
+    // Render projectiles
+    const projectiles = this.combatSystem.getProjectiles();
+    this.projectileRenderer.renderProjectiles(
+      projectiles,
+      this.mapOffsetX,
+      this.mapOffsetY
+    );
+  }
+
+  private fireNearestCannon(targetPos: { x: number; y: number }): void {
+    if (this.cannons.length === 0) return;
+
+    // Find nearest cannon to target
+    let nearestCannon = this.cannons[0];
+    let minDistance = Number.MAX_VALUE;
+
+    for (const cannon of this.cannons) {
+      const dx = targetPos.x - cannon.position.x;
+      const dy = targetPos.y - cannon.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestCannon = cannon;
+      }
+    }
+
+    // Fire cannon at target
+    this.combatSystem.fireCannon(nearestCannon.id, targetPos);
+    logger.info("Cannon fired", { cannonId: nearestCannon.id, target: targetPos });
   }
 }

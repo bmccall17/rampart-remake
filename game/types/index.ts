@@ -46,8 +46,21 @@ export interface Ship {
   id: string;
   position: Position;
   health: number;
+  maxHealth: number;
   speed: number;
   path: Position[];
+  pathIndex: number;
+  velocity: { x: number; y: number };
+  isAlive: boolean;
+}
+
+export interface Projectile {
+  id: string;
+  position: Position;
+  velocity: { x: number; y: number };
+  source: "player" | "enemy";
+  damage: number;
+  isActive: boolean;
 }
 
 export interface GameState {
