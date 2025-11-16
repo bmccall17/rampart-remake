@@ -50,6 +50,7 @@ export class MainScene extends Phaser.Scene {
   private keyR!: Phaser.Input.Keyboard.Key;
   private enclosedCastles: Castle[] = [];
   private lastClickTime: number = 0;
+  private lastLoggedPhase: GamePhase | null = null;
 
   constructor() {
     super({ key: "MainScene" });
@@ -106,7 +107,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.7.1 - Input Debug Display",
+      "v0.7.2 - Input Fix: Event-based Keyboard",
       {
         fontSize: "14px",
         color: "#888888",
@@ -158,6 +159,51 @@ export class MainScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    // ALTERNATIVE: Listen to raw keyboard events directly
+    // This ensures we catch keyboard events even if Phaser's JustDown isn't working
+    this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
+      const currentPhase = this.phaseManager.getCurrentPhase();
+
+      if (currentPhase === GamePhase.BUILD) {
+        const currentPiece = this.buildSystem.getCurrentPiece();
+        if (!currentPiece) {
+          logger.warn("No piece available for keyboard input");
+          return;
+        }
+
+        switch (event.code) {
+          case "ArrowLeft":
+            logger.info("LEFT key - moving piece");
+            this.buildSystem.movePiece(-1, 0);
+            break;
+          case "ArrowRight":
+            logger.info("RIGHT key - moving piece");
+            this.buildSystem.movePiece(1, 0);
+            break;
+          case "ArrowUp":
+            logger.info("UP key - moving piece");
+            this.buildSystem.movePiece(0, -1);
+            break;
+          case "ArrowDown":
+            logger.info("DOWN key - moving piece");
+            this.buildSystem.movePiece(0, 1);
+            break;
+          case "KeyR":
+            logger.info("R key - rotating piece");
+            this.buildSystem.rotatePiece(true);
+            break;
+          case "Space":
+            logger.info("SPACE key - placing piece");
+            if (this.buildSystem.placePiece()) {
+              logger.info("Piece placed successfully");
+              this.tileRenderer.clear();
+              this.renderMap();
+            }
+            break;
+        }
+      }
+    });
 
     // Setup mouse controls with event listeners
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -416,6 +462,12 @@ export class MainScene extends Phaser.Scene {
       this.combatSystem.update(delta);
     }
 
+    // Debug: Log phase changes (only when phase changes)
+    if (this.lastLoggedPhase !== currentPhase) {
+      logger.info(`Phase active in update loop: ${currentPhase}`);
+      this.lastLoggedPhase = currentPhase;
+    }
+
     // Render current piece or cannons
     this.renderCurrentPiece();
     this.renderCannons();
@@ -441,39 +493,56 @@ export class MainScene extends Phaser.Scene {
 
   private handleBuildPhaseInput(): void {
     const currentPiece = this.buildSystem.getCurrentPiece();
-    if (!currentPiece) return;
+    if (!currentPiece) {
+      logger.warn("No current piece available in BUILD phase!");
+      return;
+    }
 
     // Move left
     if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
-      this.buildSystem.movePiece(-1, 0);
+      logger.info("Left arrow pressed - moving piece");
+      const moved = this.buildSystem.movePiece(-1, 0);
+      logger.info(`Piece moved left: ${moved}`);
     }
 
     // Move right
     if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
-      this.buildSystem.movePiece(1, 0);
+      logger.info("Right arrow pressed - moving piece");
+      const moved = this.buildSystem.movePiece(1, 0);
+      logger.info(`Piece moved right: ${moved}`);
     }
 
     // Move up
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
-      this.buildSystem.movePiece(0, -1);
+      logger.info("Up arrow pressed - moving piece");
+      const moved = this.buildSystem.movePiece(0, -1);
+      logger.info(`Piece moved up: ${moved}`);
     }
 
     // Move down
     if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
-      this.buildSystem.movePiece(0, 1);
+      logger.info("Down arrow pressed - moving piece");
+      const moved = this.buildSystem.movePiece(0, 1);
+      logger.info(`Piece moved down: ${moved}`);
     }
 
     // Rotate
     if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-      this.buildSystem.rotatePiece(true);
+      logger.info("R key pressed - rotating piece");
+      const rotated = this.buildSystem.rotatePiece(true);
+      logger.info(`Piece rotated: ${rotated}`);
     }
 
     // Place piece
     if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
+      logger.info("Space pressed - placing piece");
       if (this.buildSystem.placePiece()) {
+        logger.info("Piece placed successfully");
         // Re-render map to show placed walls
         this.tileRenderer.clear();
         this.renderMap();
+      } else {
+        logger.warn("Failed to place piece");
       }
     }
   }
