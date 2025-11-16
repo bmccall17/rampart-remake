@@ -14,6 +14,9 @@ import { CannonRenderer } from "../systems/CannonRenderer";
 import { CombatPhaseSystem } from "../systems/CombatPhaseSystem";
 import { ShipRenderer } from "../systems/ShipRenderer";
 import { ProjectileRenderer } from "../systems/ProjectileRenderer";
+import { GameStateManager, GameState } from "./GameStateManager";
+import { GameOverScreen } from "../ui/GameOverScreen";
+import { LevelCompleteScreen } from "../ui/LevelCompleteScreen";
 
 const logger = createLogger("MainScene", true);
 
@@ -29,6 +32,9 @@ export class MainScene extends Phaser.Scene {
   private combatSystem!: CombatPhaseSystem;
   private shipRenderer!: ShipRenderer;
   private projectileRenderer!: ProjectileRenderer;
+  private gameStateManager!: GameStateManager;
+  private gameOverScreen!: GameOverScreen;
+  private levelCompleteScreen!: LevelCompleteScreen;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -76,6 +82,11 @@ export class MainScene extends Phaser.Scene {
     this.shipRenderer = new ShipRenderer(this, TILE_SIZE);
     this.projectileRenderer = new ProjectileRenderer(this, TILE_SIZE);
 
+    // Initialize game state manager
+    this.gameStateManager = new GameStateManager();
+    this.gameOverScreen = new GameOverScreen(this);
+    this.levelCompleteScreen = new LevelCompleteScreen(this);
+
     // Initialize Phase Manager
     this.initializePhaseManager();
 
@@ -89,7 +100,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.6.0 - Combat Phase: Ships & Shooting",
+      "v0.7.0 - Game Loop Integration & Polish",
       {
         fontSize: "14px",
         color: "#888888",
@@ -199,9 +210,25 @@ export class MainScene extends Phaser.Scene {
   private scorePhase(): void {
     const result = this.buildSystem.validateTerritories(this.castles);
 
+    // Award points for ships destroyed
+    const shipsDestroyed = this.combatSystem.getShipsDefeated();
+    for (let i = 0; i < shipsDestroyed; i++) {
+      this.gameStateManager.shipDestroyed();
+    }
+
+    // Award points for territories held
+    if (result.hasValidTerritory) {
+      this.gameStateManager.territoryHeld(result.enclosedCastles.length);
+    }
+
     if (!result.hasValidTerritory) {
-      logger.warn("GAME OVER: No enclosed castles!");
-      // TODO: Show game over screen
+      logger.warn("No enclosed castles - Life lost!");
+      this.gameStateManager.noValidTerritory();
+
+      // Check if game over
+      if (this.gameStateManager.isGameOver()) {
+        this.showGameOver();
+      }
     } else {
       logger.info(`${result.enclosedCastles.length} castles enclosed`);
       // Store enclosed castles for next DEPLOY phase
@@ -211,6 +238,37 @@ export class MainScene extends Phaser.Scene {
         return count + (castle.isHome ? 2 : 1);
       }, 0);
     }
+  }
+
+  private showGameOver(): void {
+    const stats = this.gameStateManager.getStats();
+    this.gameOverScreen.show(
+      stats.score,
+      stats.level,
+      stats.totalShipsDestroyed,
+      () => this.restartGame()
+    );
+  }
+
+  private showLevelComplete(): void {
+    const stats = this.gameStateManager.getStats();
+    this.levelCompleteScreen.show(
+      stats.level,
+      stats.score,
+      stats.shipsDestroyed,
+      () => this.nextLevel()
+    );
+  }
+
+  private restartGame(): void {
+    this.gameStateManager.reset();
+    this.scene.restart();
+  }
+
+  private nextLevel(): void {
+    this.gameStateManager.nextLevel();
+    // For now, just restart (future: load different map)
+    this.scene.restart();
   }
 
   private loadMap(level: number): void {
@@ -357,8 +415,9 @@ export class MainScene extends Phaser.Scene {
     this.renderCannons();
     this.renderCombat();
 
-    // Update HUD with current cannon counts
+    // Update HUD with current game stats
     const currentCannonCount = this.deploySystem.getCannons().length;
+    const stats = this.gameStateManager.getStats();
 
     this.hud.update(
       {
@@ -366,7 +425,9 @@ export class MainScene extends Phaser.Scene {
         timeRemaining,
         castleCount: this.enclosedCastles.length || this.castles.length,
         cannonCount: currentCannonCount || this.cannons.length,
-        score: this.score,
+        score: stats.score,
+        lives: stats.lives,
+        level: stats.level,
       },
       progress
     );

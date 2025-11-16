@@ -8,6 +8,8 @@ export interface HUDData {
   castleCount: number;
   cannonCount: number;
   score: number;
+  lives?: number;
+  level?: number;
 }
 
 export class HUD {
@@ -20,6 +22,8 @@ export class HUD {
   private castleText!: Phaser.GameObjects.Text;
   private cannonText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
+  private livesText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
 
   // Graphics elements
   private phaseBanner!: Phaser.GameObjects.Rectangle;
@@ -103,12 +107,12 @@ export class HUD {
     const panelY = 20;
     const lineHeight = 30;
 
-    // Panel background
+    // Panel background (made taller for lives and level)
     const panelBg = this.scene.add.rectangle(
       panelX,
-      panelY + 60,
+      panelY + 75,
       140,
-      120,
+      180,
       0x16213e,
       0.8
     );
@@ -130,17 +134,27 @@ export class HUD {
       return { labelText, valueText };
     };
 
-    const castleStat = createStatLine("🏰 Castles:", panelY + 20);
+    const levelStat = createStatLine("📍 Level:", panelY + 20);
+    this.levelText = levelStat.valueText;
+
+    const livesStat = createStatLine("❤️ Lives:", panelY + 20 + lineHeight);
+    this.livesText = livesStat.valueText;
+
+    const castleStat = createStatLine("🏰 Castles:", panelY + 20 + lineHeight * 2);
     this.castleText = castleStat.valueText;
 
-    const cannonStat = createStatLine("⚔️ Cannons:", panelY + 20 + lineHeight);
+    const cannonStat = createStatLine("⚔️ Cannons:", panelY + 20 + lineHeight * 3);
     this.cannonText = cannonStat.valueText;
 
-    const scoreStat = createStatLine("⭐ Score:", panelY + 20 + lineHeight * 2);
+    const scoreStat = createStatLine("⭐ Score:", panelY + 20 + lineHeight * 4);
     this.scoreText = scoreStat.valueText;
 
     this.container.add([
       panelBg,
+      levelStat.labelText,
+      levelStat.valueText,
+      livesStat.labelText,
+      livesStat.valueText,
       castleStat.labelText,
       castleStat.valueText,
       cannonStat.labelText,
@@ -179,6 +193,8 @@ export class HUD {
     this.castleText.setText(data.castleCount.toString());
     this.cannonText.setText(data.cannonCount.toString());
     this.scoreText.setText(data.score.toString());
+    this.livesText.setText((data.lives || 3).toString());
+    this.levelText.setText((data.level || 1).toString());
 
     // Update progress bar
     this.updateProgressBar(progress, data.phase);
