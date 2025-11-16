@@ -1,15 +1,22 @@
 import Phaser from "phaser";
 import { createLogger } from "../logging/Logger";
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from "./GameConfig";
+import { Grid } from "../grid/Grid";
+import { TileRenderer } from "../grid/TileRenderer";
+import { getMapByLevel, LEVEL_1 } from "../grid/MapData";
+import { Castle } from "../types";
 
 const logger = createLogger("MainScene", true);
 
 export class MainScene extends Phaser.Scene {
-  private gridGraphics!: Phaser.GameObjects.Graphics;
+  private grid!: Grid;
+  private tileRenderer!: TileRenderer;
   private titleText!: Phaser.GameObjects.Text;
   private infoText!: Phaser.GameObjects.Text;
-  private animatedSquare!: Phaser.GameObjects.Rectangle;
-  private squareVelocity = { x: 2, y: 1.5 };
+  private castleSprites: Phaser.GameObjects.Graphics[] = [];
+  private currentLevel: number = 1;
+  private mapOffsetX: number = 0;
+  private mapOffsetY: number = 0;
 
   constructor() {
     super({ key: "MainScene" });
@@ -29,8 +36,8 @@ export class MainScene extends Phaser.Scene {
     );
 
     // Create title
-    this.titleText = this.add.text(GAME_WIDTH / 2, 60, "RAMPART REMAKE", {
-      fontSize: "48px",
+    this.titleText = this.add.text(GAME_WIDTH / 2, 30, "RAMPART REMAKE", {
+      fontSize: "36px",
       color: "#00d9ff",
       fontStyle: "bold",
     });
@@ -39,107 +46,185 @@ export class MainScene extends Phaser.Scene {
     // Create info text
     this.infoText = this.add.text(
       GAME_WIDTH / 2,
-      120,
-      "Phase 1: Foundation Complete",
+      70,
+      "Phase 2: Level 1 - First Island",
       {
-        fontSize: "24px",
+        fontSize: "20px",
         color: "#ffffff",
       }
     );
     this.infoText.setOrigin(0.5);
 
-    // Draw a simple grid to demonstrate rendering
-    this.drawGrid();
-
-    // Create an animated square to show the game loop is running
-    this.animatedSquare = this.add.rectangle(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2,
-      40,
-      40,
-      0xff6b6b
-    );
+    // Load and render the map
+    this.loadMap(this.currentLevel);
 
     // Add version info
-    const versionText = this.add.text(
+    this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.1.0 - Phaser.js + Next.js + TypeScript",
+      "v0.2.0 - Grid System & Map Rendering",
       {
         fontSize: "14px",
         color: "#888888",
       }
     );
 
-    logger.event("GridRendered", {
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
-      tileSize: TILE_SIZE,
+    // Add legend
+    this.createLegend();
+  }
+
+  private loadMap(level: number): void {
+    logger.info(`Loading level ${level}`);
+
+    // Get map definition
+    const mapDef = getMapByLevel(level);
+
+    // Create grid and tile renderer
+    this.grid = new Grid(mapDef.width, mapDef.height);
+    this.tileRenderer = new TileRenderer(this, TILE_SIZE);
+
+    // Load map data into grid
+    this.grid.loadMap(mapDef);
+
+    // Calculate centering offset
+    this.mapOffsetX = (GAME_WIDTH - mapDef.width * TILE_SIZE) / 2;
+    this.mapOffsetY = (GAME_HEIGHT - mapDef.height * TILE_SIZE) / 2 + 50;
+
+    // Render the map
+    this.renderMap();
+
+    // Render castles
+    this.renderCastles(mapDef.castles);
+
+    logger.event("MapLoaded", {
+      level,
+      mapId: mapDef.id,
+      mapName: mapDef.name,
+      width: mapDef.width,
+      height: mapDef.height,
+      castleCount: mapDef.castles.length,
     });
   }
 
-  drawGrid() {
-    this.gridGraphics = this.add.graphics();
-    this.gridGraphics.lineStyle(1, 0x16213e, 0.5);
+  private renderMap(): void {
+    const tiles = this.grid.getAllTiles();
+    const height = this.grid.getHeight();
+    const width = this.grid.getWidth();
 
-    const gridWidth = 20;
-    const gridHeight = 15;
-    const startX = (GAME_WIDTH - gridWidth * TILE_SIZE) / 2;
-    const startY = (GAME_HEIGHT - gridHeight * TILE_SIZE) / 2 + 40;
-
-    // Draw grid lines
-    for (let i = 0; i <= gridWidth; i++) {
-      this.gridGraphics.lineBetween(
-        startX + i * TILE_SIZE,
-        startY,
-        startX + i * TILE_SIZE,
-        startY + gridHeight * TILE_SIZE
-      );
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        this.tileRenderer.renderTile(
+          x,
+          y,
+          tiles[y][x].type,
+          this.mapOffsetX,
+          this.mapOffsetY
+        );
+      }
     }
 
-    for (let j = 0; j <= gridHeight; j++) {
-      this.gridGraphics.lineBetween(
-        startX,
-        startY + j * TILE_SIZE,
-        startX + gridWidth * TILE_SIZE,
-        startY + j * TILE_SIZE
-      );
-    }
+    logger.info("Map rendered", { width, height });
+  }
 
-    // Fill some sample tiles to show different colors
-    const colors = [0x16a085, 0x2980b9, 0x8e44ad, 0xc0392b];
-    for (let i = 0; i < 10; i++) {
-      const x = Math.floor(Math.random() * gridWidth);
-      const y = Math.floor(Math.random() * gridHeight);
-      const color = colors[Math.floor(Math.random() * colors.length)];
+  private renderCastles(castles: Castle[]): void {
+    castles.forEach((castle) => {
+      const x = this.mapOffsetX + castle.position.x * TILE_SIZE;
+      const y = this.mapOffsetY + castle.position.y * TILE_SIZE;
 
-      this.gridGraphics.fillStyle(color, 0.6);
-      this.gridGraphics.fillRect(
-        startX + x * TILE_SIZE + 1,
-        startY + y * TILE_SIZE + 1,
-        TILE_SIZE - 2,
-        TILE_SIZE - 2
-      );
-    }
+      // Create castle graphics
+      const castleGraphics = this.add.graphics();
+
+      // Castle flag/tower
+      if (castle.isHome) {
+        // Home castle - larger with flag
+        castleGraphics.fillStyle(0xff4444, 1);
+        castleGraphics.fillRect(
+          x + TILE_SIZE / 2 - 4,
+          y + 4,
+          8,
+          TILE_SIZE - 8
+        );
+
+        // Flag
+        castleGraphics.fillStyle(0xffaa00, 1);
+        castleGraphics.fillTriangle(
+          x + TILE_SIZE / 2 + 4,
+          y + 6,
+          x + TILE_SIZE / 2 + 4,
+          y + 16,
+          x + TILE_SIZE / 2 + 14,
+          y + 11
+        );
+      } else {
+        // Regular castle - tower only
+        castleGraphics.fillStyle(0x888888, 1);
+        castleGraphics.fillRect(
+          x + TILE_SIZE / 2 - 3,
+          y + 6,
+          6,
+          TILE_SIZE - 12
+        );
+
+        // Small flag
+        castleGraphics.fillStyle(0xaaaaaa, 1);
+        castleGraphics.fillTriangle(
+          x + TILE_SIZE / 2 + 3,
+          y + 8,
+          x + TILE_SIZE / 2 + 3,
+          y + 14,
+          x + TILE_SIZE / 2 + 9,
+          y + 11
+        );
+      }
+
+      // Castle label (optional for debugging)
+      const labelText = this.add.text(x + TILE_SIZE / 2, y - 8, castle.isHome ? "HOME" : "⚑", {
+        fontSize: "10px",
+        color: castle.isHome ? "#ff4444" : "#888888",
+        fontStyle: "bold",
+      });
+      labelText.setOrigin(0.5);
+
+      this.castleSprites.push(castleGraphics);
+    });
+
+    logger.info(`Rendered ${castles.length} castles`);
+  }
+
+  private createLegend(): void {
+    const legendX = 20;
+    const legendY = 110;
+    const lineHeight = 20;
+
+    this.add.text(legendX, legendY, "Legend:", {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontStyle: "bold",
+    });
+
+    const items = [
+      { color: 0x6b8e23, label: "Land" },
+      { color: 0x1e5f8c, label: "Water" },
+      { color: 0xff4444, label: "Home Castle" },
+      { color: 0x888888, label: "Castle" },
+    ];
+
+    items.forEach((item, index) => {
+      const y = legendY + (index + 1) * lineHeight;
+
+      // Color box
+      const box = this.add.rectangle(legendX + 8, y + 8, 12, 12, item.color);
+
+      // Label
+      this.add.text(legendX + 20, y, item.label, {
+        fontSize: "12px",
+        color: "#cccccc",
+      });
+    });
   }
 
   update(time: number, delta: number) {
-    // Animate the square to show the game loop is running
-    this.animatedSquare.x += this.squareVelocity.x;
-    this.animatedSquare.y += this.squareVelocity.y;
-
-    // Bounce off edges
-    if (
-      this.animatedSquare.x <= 20 ||
-      this.animatedSquare.x >= GAME_WIDTH - 20
-    ) {
-      this.squareVelocity.x *= -1;
-    }
-    if (
-      this.animatedSquare.y <= 180 ||
-      this.animatedSquare.y >= GAME_HEIGHT - 60
-    ) {
-      this.squareVelocity.y *= -1;
-    }
+    // No animation needed for Phase 2
+    // Future phases will add game loop logic here
   }
 }

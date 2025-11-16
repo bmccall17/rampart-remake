@@ -1,4 +1,5 @@
 import { Tile, TileType } from "../types";
+import { MapDefinition } from "./MapData";
 
 export class Grid {
   private tiles: Tile[][];
@@ -24,6 +25,23 @@ export class Grid {
       }
     }
     return grid;
+  }
+
+  /**
+   * Load a map definition into the grid
+   */
+  loadMap(mapDef: MapDefinition): void {
+    if (mapDef.width !== this.width || mapDef.height !== this.height) {
+      throw new Error(
+        `Map dimensions (${mapDef.width}x${mapDef.height}) don't match grid (${this.width}x${this.height})`
+      );
+    }
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        this.tiles[y][x].type = mapDef.tiles[y][x];
+      }
+    }
   }
 
   getTile(x: number, y: number): Tile | null {
