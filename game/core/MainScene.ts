@@ -368,10 +368,10 @@ export class MainScene extends Phaser.Scene {
   }
 
   private handleDeployPhaseInput(): void {
-    // Handle mouse click for cannon placement
-    if (this.input.activePointer.isDown && this.input.activePointer.justDown) {
-      const pointer = this.input.activePointer;
+    const pointer = this.input.activePointer;
 
+    // Handle left mouse click for cannon placement
+    if (pointer.leftButtonDown() && pointer.getDuration() < 100) {
       // Convert screen position to grid position
       const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
       const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
@@ -381,9 +381,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Remove cannon with right click
-    if (this.input.activePointer.rightButtonDown()) {
-      const pointer = this.input.activePointer;
-
+    if (pointer.rightButtonDown() && pointer.getDuration() < 100) {
       const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
       const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
 

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git ls-tree:*)",
-      "Bash(npx create-next-app@latest:*)"
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
