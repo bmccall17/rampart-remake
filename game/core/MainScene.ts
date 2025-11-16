@@ -7,6 +7,8 @@ import { getMapByLevel } from "../grid/MapData";
 import { Castle, GamePhase } from "../types";
 import { PhaseManager } from "./PhaseManager";
 import { HUD } from "./HUD";
+import { BuildPhaseSystem } from "../systems/BuildPhaseSystem";
+import { PieceRenderer } from "../systems/PieceRenderer";
 
 const logger = createLogger("MainScene", true);
 
@@ -15,6 +17,8 @@ export class MainScene extends Phaser.Scene {
   private tileRenderer!: TileRenderer;
   private phaseManager!: PhaseManager;
   private hud!: HUD;
+  private buildSystem!: BuildPhaseSystem;
+  private pieceRenderer!: PieceRenderer;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -22,6 +26,9 @@ export class MainScene extends Phaser.Scene {
   private castles: Castle[] = [];
   private cannonCount: number = 0;
   private score: number = 0;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private keySpace!: Phaser.Input.Keyboard.Key;
+  private keyR!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super({ key: "MainScene" });
@@ -43,19 +50,37 @@ export class MainScene extends Phaser.Scene {
     // Load and render the map
     this.loadMap(this.currentLevel);
 
+    // Initialize build system
+    this.buildSystem = new BuildPhaseSystem(this.grid);
+    this.pieceRenderer = new PieceRenderer(this, TILE_SIZE);
+
     // Initialize Phase Manager
     this.initializePhaseManager();
 
     // Create HUD
     this.hud = new HUD(this);
 
+    // Setup input controls
+    this.setupControls();
+
     // Add version info
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.3.0 - Phase State Machine",
+      "v0.4.0 - Build Phase & Wall Placement",
       {
         fontSize: "14px",
+        color: "#888888",
+      }
+    );
+
+    // Add controls hint
+    this.add.text(
+      10,
+      GAME_HEIGHT - 55,
+      "Arrow Keys: Move | R: Rotate | Space: Place",
+      {
+        fontSize: "12px",
         color: "#888888",
       }
     );
@@ -89,11 +114,20 @@ export class MainScene extends Phaser.Scene {
     logger.info("PhaseManager initialized");
   }
 
+  private setupControls(): void {
+    // Setup keyboard controls
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    logger.info("Controls initialized");
+  }
+
   private onPhaseChange(newPhase: GamePhase): void {
-    // Phase-specific behavior will be added in future phases
     switch (newPhase) {
       case GamePhase.BUILD:
-        logger.info("Entering BUILD phase - TODO: Enable wall placement");
+        logger.info("Entering BUILD phase - Wall placement enabled");
+        this.buildSystem.startBuildPhase();
         break;
       case GamePhase.DEPLOY:
         logger.info("Entering DEPLOY phase - TODO: Enable cannon placement");
@@ -102,8 +136,24 @@ export class MainScene extends Phaser.Scene {
         logger.info("Entering COMBAT phase - TODO: Spawn ships");
         break;
       case GamePhase.SCORING:
-        logger.info("Entering SCORING phase - TODO: Validate territories");
+        logger.info("Entering SCORING phase - Validating territories");
+        this.scorePhase();
         break;
+    }
+  }
+
+  private scorePhase(): void {
+    const result = this.buildSystem.validateTerritories(this.castles);
+
+    if (!result.hasValidTerritory) {
+      logger.warn("GAME OVER: No enclosed castles!");
+      // TODO: Show game over screen
+    } else {
+      logger.info(`${result.enclosedCastles.length} castles enclosed`);
+      // Update cannon count based on enclosed castles
+      this.cannonCount = result.enclosedCastles.reduce((count, castle) => {
+        return count + (castle.isHome ? 2 : 1);
+      }, 0);
     }
   }
 
@@ -237,6 +287,14 @@ export class MainScene extends Phaser.Scene {
     const timeRemaining = this.phaseManager.getTimeRemainingFormatted(time);
     const progress = this.phaseManager.getPhaseProgress(time);
 
+    // Handle BUILD phase input
+    if (currentPhase === GamePhase.BUILD) {
+      this.handleBuildPhaseInput();
+    }
+
+    // Render current piece
+    this.renderCurrentPiece();
+
     // Update HUD
     this.hud.update(
       {
@@ -247,6 +305,66 @@ export class MainScene extends Phaser.Scene {
         score: this.score,
       },
       progress
+    );
+  }
+
+  private handleBuildPhaseInput(): void {
+    const currentPiece = this.buildSystem.getCurrentPiece();
+    if (!currentPiece) return;
+
+    // Move left
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
+      this.buildSystem.movePiece(-1, 0);
+    }
+
+    // Move right
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
+      this.buildSystem.movePiece(1, 0);
+    }
+
+    // Move up
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
+      this.buildSystem.movePiece(0, -1);
+    }
+
+    // Move down
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
+      this.buildSystem.movePiece(0, 1);
+    }
+
+    // Rotate
+    if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+      this.buildSystem.rotatePiece(true);
+    }
+
+    // Place piece
+    if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
+      if (this.buildSystem.placePiece()) {
+        // Re-render map to show placed walls
+        this.tileRenderer.clear();
+        this.renderMap();
+      }
+    }
+  }
+
+  private renderCurrentPiece(): void {
+    const currentPhase = this.phaseManager.getCurrentPhase();
+
+    // Clear previous piece rendering
+    this.pieceRenderer.clear();
+
+    // Only render during BUILD phase
+    if (currentPhase !== GamePhase.BUILD) return;
+
+    const currentPiece = this.buildSystem.getCurrentPiece();
+    if (!currentPiece) return;
+
+    // Render the current piece
+    this.pieceRenderer.renderPiece(
+      currentPiece,
+      this.mapOffsetX,
+      this.mapOffsetY,
+      false
     );
   }
 }
