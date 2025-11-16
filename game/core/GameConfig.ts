@@ -23,4 +23,9 @@ export const GameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
+  input: {
+    keyboard: true,
+    mouse: true,
+    touch: true,
+  },
 };

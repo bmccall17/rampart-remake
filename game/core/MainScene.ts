@@ -35,6 +35,7 @@ export class MainScene extends Phaser.Scene {
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyR!: Phaser.Input.Keyboard.Key;
   private enclosedCastles: Castle[] = [];
+  private lastClickTime: number = 0;
 
   constructor() {
     super({ key: "MainScene" });
@@ -129,6 +130,27 @@ export class MainScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    // Setup mouse controls with event listeners
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      const currentPhase = this.phaseManager.getCurrentPhase();
+      if (currentPhase !== GamePhase.DEPLOY) return;
+
+      const now = this.time.now;
+      if (now - this.lastClickTime < 200) return; // Debounce
+      this.lastClickTime = now;
+
+      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
+      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      if (pointer.leftButtonDown()) {
+        // Place cannon
+        this.deploySystem.placeCannon({ x: gridX, y: gridY });
+      } else if (pointer.rightButtonDown()) {
+        // Remove cannon
+        this.deploySystem.removeCannon({ x: gridX, y: gridY });
+      }
+    });
 
     logger.info("Controls initialized");
   }
@@ -368,25 +390,8 @@ export class MainScene extends Phaser.Scene {
   }
 
   private handleDeployPhaseInput(): void {
-    const pointer = this.input.activePointer;
-
-    // Handle left mouse click for cannon placement
-    if (pointer.leftButtonDown() && pointer.getDuration() < 100) {
-      // Convert screen position to grid position
-      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
-      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
-
-      // Try to place cannon
-      this.deploySystem.placeCannon({ x: gridX, y: gridY });
-    }
-
-    // Remove cannon with right click
-    if (pointer.rightButtonDown() && pointer.getDuration() < 100) {
-      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
-      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
-
-      this.deploySystem.removeCannon({ x: gridX, y: gridY });
-    }
+    // Mouse input now handled via event listeners in setupControls()
+    // This method is kept for future keyboard-based cannon controls if needed
   }
 
   private renderCurrentPiece(): void {

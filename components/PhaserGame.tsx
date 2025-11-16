@@ -9,6 +9,7 @@ const logger = createLogger("PhaserGame", true);
 
 export default function PhaserGame() {
   const gameRef = useRef<Phaser.Game | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !gameRef.current) {
@@ -16,6 +17,15 @@ export default function PhaserGame() {
       logger.event("GameInitialized", { config: "MainScene" });
 
       gameRef.current = new Phaser.Game(GameConfig);
+
+      // Ensure canvas gets focus for keyboard input
+      setTimeout(() => {
+        const canvas = document.querySelector("canvas");
+        if (canvas) {
+          canvas.setAttribute("tabindex", "1");
+          canvas.focus();
+        }
+      }, 100);
     }
 
     return () => {
@@ -27,5 +37,5 @@ export default function PhaserGame() {
     };
   }, []);
 
-  return null;
+  return <div ref={containerRef} />;
 }
