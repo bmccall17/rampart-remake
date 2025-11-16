@@ -3,20 +3,25 @@ import { createLogger } from "../logging/Logger";
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from "./GameConfig";
 import { Grid } from "../grid/Grid";
 import { TileRenderer } from "../grid/TileRenderer";
-import { getMapByLevel, LEVEL_1 } from "../grid/MapData";
-import { Castle } from "../types";
+import { getMapByLevel } from "../grid/MapData";
+import { Castle, GamePhase } from "../types";
+import { PhaseManager } from "./PhaseManager";
+import { HUD } from "./HUD";
 
 const logger = createLogger("MainScene", true);
 
 export class MainScene extends Phaser.Scene {
   private grid!: Grid;
   private tileRenderer!: TileRenderer;
-  private titleText!: Phaser.GameObjects.Text;
-  private infoText!: Phaser.GameObjects.Text;
+  private phaseManager!: PhaseManager;
+  private hud!: HUD;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
   private mapOffsetY: number = 0;
+  private castles: Castle[] = [];
+  private cannonCount: number = 0;
+  private score: number = 0;
 
   constructor() {
     super({ key: "MainScene" });
@@ -35,42 +40,67 @@ export class MainScene extends Phaser.Scene {
       0x0f3460
     );
 
-    // Create title
-    this.titleText = this.add.text(GAME_WIDTH / 2, 30, "RAMPART REMAKE", {
-      fontSize: "36px",
-      color: "#00d9ff",
-      fontStyle: "bold",
-    });
-    this.titleText.setOrigin(0.5);
-
-    // Create info text
-    this.infoText = this.add.text(
-      GAME_WIDTH / 2,
-      70,
-      "Phase 2: Level 1 - First Island",
-      {
-        fontSize: "20px",
-        color: "#ffffff",
-      }
-    );
-    this.infoText.setOrigin(0.5);
-
     // Load and render the map
     this.loadMap(this.currentLevel);
+
+    // Initialize Phase Manager
+    this.initializePhaseManager();
+
+    // Create HUD
+    this.hud = new HUD(this);
 
     // Add version info
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.2.0 - Grid System & Map Rendering",
+      "v0.3.0 - Phase State Machine",
       {
         fontSize: "14px",
         color: "#888888",
       }
     );
 
-    // Add legend
-    this.createLegend();
+    // Show initial phase transition
+    this.hud.showPhaseTransition(GamePhase.BUILD);
+  }
+
+  private initializePhaseManager(): void {
+    // Create phase manager starting with BUILD phase
+    this.phaseManager = new PhaseManager(GamePhase.BUILD);
+
+    // Set phase change callback
+    this.phaseManager.setOnPhaseChange((event) => {
+      logger.info("Phase transition", event);
+
+      // Show visual transition
+      this.hud.showPhaseTransition(event.toPhase);
+
+      // Handle phase-specific logic
+      this.onPhaseChange(event.toPhase);
+    });
+
+    // Start the phase manager
+    this.phaseManager.start(this.time.now);
+
+    logger.info("PhaseManager initialized");
+  }
+
+  private onPhaseChange(newPhase: GamePhase): void {
+    // Phase-specific behavior will be added in future phases
+    switch (newPhase) {
+      case GamePhase.BUILD:
+        logger.info("Entering BUILD phase - TODO: Enable wall placement");
+        break;
+      case GamePhase.DEPLOY:
+        logger.info("Entering DEPLOY phase - TODO: Enable cannon placement");
+        break;
+      case GamePhase.COMBAT:
+        logger.info("Entering COMBAT phase - TODO: Spawn ships");
+        break;
+      case GamePhase.SCORING:
+        logger.info("Entering SCORING phase - TODO: Validate territories");
+        break;
+    }
   }
 
   private loadMap(level: number): void {
@@ -86,9 +116,12 @@ export class MainScene extends Phaser.Scene {
     // Load map data into grid
     this.grid.loadMap(mapDef);
 
+    // Store castles
+    this.castles = mapDef.castles;
+
     // Calculate centering offset
     this.mapOffsetX = (GAME_WIDTH - mapDef.width * TILE_SIZE) / 2;
-    this.mapOffsetY = (GAME_HEIGHT - mapDef.height * TILE_SIZE) / 2 + 50;
+    this.mapOffsetY = (GAME_HEIGHT - mapDef.height * TILE_SIZE) / 2 + 70;
 
     // Render the map
     this.renderMap();
@@ -191,40 +224,25 @@ export class MainScene extends Phaser.Scene {
     logger.info(`Rendered ${castles.length} castles`);
   }
 
-  private createLegend(): void {
-    const legendX = 20;
-    const legendY = 110;
-    const lineHeight = 20;
-
-    this.add.text(legendX, legendY, "Legend:", {
-      fontSize: "14px",
-      color: "#ffffff",
-      fontStyle: "bold",
-    });
-
-    const items = [
-      { color: 0x6b8e23, label: "Land" },
-      { color: 0x1e5f8c, label: "Water" },
-      { color: 0xff4444, label: "Home Castle" },
-      { color: 0x888888, label: "Castle" },
-    ];
-
-    items.forEach((item, index) => {
-      const y = legendY + (index + 1) * lineHeight;
-
-      // Color box
-      const box = this.add.rectangle(legendX + 8, y + 8, 12, 12, item.color);
-
-      // Label
-      this.add.text(legendX + 20, y, item.label, {
-        fontSize: "12px",
-        color: "#cccccc",
-      });
-    });
-  }
-
   update(time: number, delta: number) {
-    // No animation needed for Phase 2
-    // Future phases will add game loop logic here
+    // Update phase manager
+    this.phaseManager.update(time);
+
+    // Get current phase data
+    const currentPhase = this.phaseManager.getCurrentPhase();
+    const timeRemaining = this.phaseManager.getTimeRemainingFormatted(time);
+    const progress = this.phaseManager.getPhaseProgress(time);
+
+    // Update HUD
+    this.hud.update(
+      {
+        phase: currentPhase,
+        timeRemaining,
+        castleCount: this.castles.length,
+        cannonCount: this.cannonCount,
+        score: this.score,
+      },
+      progress
+    );
   }
 }
