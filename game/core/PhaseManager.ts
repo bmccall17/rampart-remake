@@ -157,7 +157,11 @@ export class PhaseManager {
       timestamp: currentTime,
     };
 
-    logger.event("PhaseChanged", event);
+    logger.event("PhaseChanged", {
+      fromPhase: oldPhase || "none",
+      toPhase: newPhase,
+      timestamp: currentTime,
+    });
 
     if (this.onPhaseChange) {
       this.onPhaseChange(event);

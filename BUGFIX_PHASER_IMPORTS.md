@@ -2,15 +2,15 @@
 
 ## Issue
 
-Build failed with error:
-```
-Attempted import error: 'phaser' does not contain a default export (imported as 'Phaser').
-```
+Build failed with errors:
+1. ```
+   Attempted import error: 'phaser' does not contain a default export (imported as 'Phaser').
+   ```
 
-And TypeScript error:
-```
-Type error: Argument of type 'PhaseChangeEvent' is not assignable to parameter of type 'LogEventPayload'.
-```
+2. ```
+   Type error: Argument of type 'PhaseChangeEvent' is not assignable to parameter of type 'LogEventPayload'.
+   Index signature for type 'string' is missing in type 'PhaseChangeEvent'.
+   ```
 
 ## Root Cause
 
@@ -20,7 +20,7 @@ Type error: Argument of type 'PhaseChangeEvent' is not assignable to parameter o
    import Phaser from "phaser";       // ❌ Wrong
    ```
 
-2. **Logger Type Issue**: The `PhaseChangeEvent` object doesn't have the index signature required by `LogEventPayload`, so it couldn't be passed directly to `logger.info()`.
+2. **Logger Type Issue**: The `PhaseChangeEvent` object doesn't have the index signature `[key: string]: unknown` required by `LogEventPayload`, so it couldn't be passed directly to logger methods.
 
 ## Files Fixed
 
@@ -34,9 +34,9 @@ Changed from `import Phaser from "phaser"` to `import * as Phaser from "phaser"`
 - ✅ `game/grid/TileRenderer.ts`
 - ✅ `components/PhaserGame.tsx`
 
-### 2. Fixed Logger Type Error
+### 2. Fixed Logger Type Errors (2 locations)
 
-**File**: `game/core/MainScene.ts:73`
+**File 1**: `game/core/MainScene.ts:73`
 
 **Before**:
 ```typescript
@@ -49,6 +49,22 @@ logger.info("Phase transition", {
   fromPhase: event.fromPhase || "none",
   toPhase: event.toPhase,
   timestamp: event.timestamp,
+});
+```
+
+**File 2**: `game/core/PhaseManager.ts:160`
+
+**Before**:
+```typescript
+logger.event("PhaseChanged", event);
+```
+
+**After**:
+```typescript
+logger.event("PhaseChanged", {
+  fromPhase: oldPhase || "none",
+  toPhase: newPhase,
+  timestamp: currentTime,
 });
 ```
 
