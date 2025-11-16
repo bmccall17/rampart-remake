@@ -107,7 +107,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.7.2 - Input Fix: Event-based Keyboard",
+      "v0.7.3 - Input Fix + ESC to Restart",
       {
         fontSize: "14px",
         color: "#888888",
@@ -118,7 +118,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 55,
-      "BUILD: Arrows/R/Space | DEPLOY: Click cannons | COMBAT: Click to fire",
+      "BUILD: Arrows/R/Space | DEPLOY: Click cannons | COMBAT: Click fire | ESC: Restart",
       {
         fontSize: "12px",
         color: "#888888",
@@ -164,6 +164,13 @@ export class MainScene extends Phaser.Scene {
     // This ensures we catch keyboard events even if Phaser's JustDown isn't working
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
       const currentPhase = this.phaseManager.getCurrentPhase();
+
+      // DEBUG: Press ESC to restart game and go back to BUILD phase
+      if (event.code === "Escape") {
+        logger.info("ESC pressed - Restarting game");
+        this.scene.restart();
+        return;
+      }
 
       if (currentPhase === GamePhase.BUILD) {
         const currentPiece = this.buildSystem.getCurrentPiece();
