@@ -4,11 +4,13 @@ import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from "./GameConfig";
 import { Grid } from "../grid/Grid";
 import { TileRenderer } from "../grid/TileRenderer";
 import { getMapByLevel } from "../grid/MapData";
-import { Castle, GamePhase } from "../types";
+import { Castle, GamePhase, Cannon } from "../types";
 import { PhaseManager } from "./PhaseManager";
 import { HUD } from "./HUD";
 import { BuildPhaseSystem } from "../systems/BuildPhaseSystem";
 import { PieceRenderer } from "../systems/PieceRenderer";
+import { DeployPhaseSystem } from "../systems/DeployPhaseSystem";
+import { CannonRenderer } from "../systems/CannonRenderer";
 
 const logger = createLogger("MainScene", true);
 
@@ -19,16 +21,20 @@ export class MainScene extends Phaser.Scene {
   private hud!: HUD;
   private buildSystem!: BuildPhaseSystem;
   private pieceRenderer!: PieceRenderer;
+  private deploySystem!: DeployPhaseSystem;
+  private cannonRenderer!: CannonRenderer;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
   private mapOffsetY: number = 0;
   private castles: Castle[] = [];
+  private cannons: Cannon[] = [];
   private cannonCount: number = 0;
   private score: number = 0;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyR!: Phaser.Input.Keyboard.Key;
+  private enclosedCastles: Castle[] = [];
 
   constructor() {
     super({ key: "MainScene" });
@@ -54,6 +60,10 @@ export class MainScene extends Phaser.Scene {
     this.buildSystem = new BuildPhaseSystem(this.grid);
     this.pieceRenderer = new PieceRenderer(this, TILE_SIZE);
 
+    // Initialize deploy system
+    this.deploySystem = new DeployPhaseSystem(this.grid);
+    this.cannonRenderer = new CannonRenderer(this, TILE_SIZE);
+
     // Initialize Phase Manager
     this.initializePhaseManager();
 
@@ -67,7 +77,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.4.0 - Build Phase & Wall Placement",
+      "v0.5.0 - Deploy Phase & Cannon Placement",
       {
         fontSize: "14px",
         color: "#888888",
@@ -78,7 +88,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 55,
-      "Arrow Keys: Move | R: Rotate | Space: Place",
+      "BUILD: Arrows/R/Space | DEPLOY: Click to place cannons",
       {
         fontSize: "12px",
         color: "#888888",
@@ -130,10 +140,13 @@ export class MainScene extends Phaser.Scene {
         this.buildSystem.startBuildPhase();
         break;
       case GamePhase.DEPLOY:
-        logger.info("Entering DEPLOY phase - TODO: Enable cannon placement");
+        logger.info("Entering DEPLOY phase - Cannon placement enabled");
+        this.deploySystem.startDeployPhase(this.enclosedCastles);
         break;
       case GamePhase.COMBAT:
         logger.info("Entering COMBAT phase - TODO: Spawn ships");
+        // Finalize cannon deployment
+        this.cannons = this.deploySystem.finalizeDeployment();
         break;
       case GamePhase.SCORING:
         logger.info("Entering SCORING phase - Validating territories");
@@ -150,6 +163,8 @@ export class MainScene extends Phaser.Scene {
       // TODO: Show game over screen
     } else {
       logger.info(`${result.enclosedCastles.length} castles enclosed`);
+      // Store enclosed castles for next DEPLOY phase
+      this.enclosedCastles = result.enclosedCastles;
       // Update cannon count based on enclosed castles
       this.cannonCount = result.enclosedCastles.reduce((count, castle) => {
         return count + (castle.isHome ? 2 : 1);
@@ -287,21 +302,26 @@ export class MainScene extends Phaser.Scene {
     const timeRemaining = this.phaseManager.getTimeRemainingFormatted(time);
     const progress = this.phaseManager.getPhaseProgress(time);
 
-    // Handle BUILD phase input
+    // Handle phase-specific input
     if (currentPhase === GamePhase.BUILD) {
       this.handleBuildPhaseInput();
+    } else if (currentPhase === GamePhase.DEPLOY) {
+      this.handleDeployPhaseInput();
     }
 
-    // Render current piece
+    // Render current piece or cannons
     this.renderCurrentPiece();
+    this.renderCannons();
 
-    // Update HUD
+    // Update HUD with current cannon counts
+    const currentCannonCount = this.deploySystem.getCannons().length;
+
     this.hud.update(
       {
         phase: currentPhase,
         timeRemaining,
-        castleCount: this.castles.length,
-        cannonCount: this.cannonCount,
+        castleCount: this.enclosedCastles.length || this.castles.length,
+        cannonCount: currentCannonCount || this.cannons.length,
         score: this.score,
       },
       progress
@@ -347,6 +367,30 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
+  private handleDeployPhaseInput(): void {
+    // Handle mouse click for cannon placement
+    if (this.input.activePointer.isDown && this.input.activePointer.justDown) {
+      const pointer = this.input.activePointer;
+
+      // Convert screen position to grid position
+      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
+      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      // Try to place cannon
+      this.deploySystem.placeCannon({ x: gridX, y: gridY });
+    }
+
+    // Remove cannon with right click
+    if (this.input.activePointer.rightButtonDown()) {
+      const pointer = this.input.activePointer;
+
+      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
+      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      this.deploySystem.removeCannon({ x: gridX, y: gridY });
+    }
+  }
+
   private renderCurrentPiece(): void {
     const currentPhase = this.phaseManager.getCurrentPhase();
 
@@ -366,5 +410,46 @@ export class MainScene extends Phaser.Scene {
       this.mapOffsetY,
       false
     );
+  }
+
+  private renderCannons(): void {
+    const currentPhase = this.phaseManager.getCurrentPhase();
+
+    // Clear previous cannon rendering
+    this.cannonRenderer.clear();
+
+    // Render during DEPLOY and COMBAT phases
+    if (currentPhase === GamePhase.DEPLOY) {
+      const cannons = this.deploySystem.getCannons();
+      this.cannonRenderer.renderCannons(
+        cannons,
+        this.mapOffsetX,
+        this.mapOffsetY
+      );
+
+      // Show preview at mouse position
+      const pointer = this.input.activePointer;
+      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
+      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      const isValid = this.deploySystem.isValidCannonPosition({ x: gridX, y: gridY });
+      const remaining = this.deploySystem.getRemainingCannonCount();
+
+      if (remaining > 0) {
+        this.cannonRenderer.renderCannonPreview(
+          { x: gridX, y: gridY },
+          this.mapOffsetX,
+          this.mapOffsetY,
+          isValid
+        );
+      }
+    } else if (currentPhase === GamePhase.COMBAT || currentPhase === GamePhase.SCORING) {
+      // Render finalized cannons
+      this.cannonRenderer.renderCannons(
+        this.cannons,
+        this.mapOffsetX,
+        this.mapOffsetY
+      );
+    }
   }
 }
