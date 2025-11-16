@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { createLogger } from "../logging/Logger";
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from "./GameConfig";
 import { Grid } from "../grid/Grid";
@@ -70,7 +70,11 @@ export class MainScene extends Phaser.Scene {
 
     // Set phase change callback
     this.phaseManager.setOnPhaseChange((event) => {
-      logger.info("Phase transition", event);
+      logger.info("Phase transition", {
+        fromPhase: event.fromPhase || "none",
+        toPhase: event.toPhase,
+        timestamp: event.timestamp,
+      });
 
       // Show visual transition
       this.hud.showPhaseTransition(event.toPhase);

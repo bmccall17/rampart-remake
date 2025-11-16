@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { GamePhase } from "../types";
 import { GAME_WIDTH, GAME_HEIGHT } from "./GameConfig";
 

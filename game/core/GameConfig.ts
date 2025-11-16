@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { MainScene } from "./MainScene";
 
 export const GAME_WIDTH = 1024;

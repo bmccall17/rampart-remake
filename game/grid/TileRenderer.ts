@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { TileType } from "../types";
 import { TILE_SIZE } from "../core/GameConfig";
 
