@@ -45,17 +45,16 @@ export class PieceRenderer {
    * Draw a solid piece tile
    */
   private drawPieceTile(x: number, y: number): void {
-    // Fill
-    this.graphics.fillStyle(0x8b7355, 0.9); // Wall color
-    this.graphics.fillRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2);
+    // DEBUG: Make piece VERY visible with bright yellow
+    // Fill - BRIGHT YELLOW
+    this.graphics.fillStyle(0xffff00, 1.0); // Bright yellow
+    this.graphics.fillRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
 
-    // Border
-    this.graphics.lineStyle(2, 0xa08968, 1);
-    this.graphics.strokeRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2);
+    // Border - THICK RED
+    this.graphics.lineStyle(4, 0xff0000, 1); // Thick red border
+    this.graphics.strokeRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
 
-    // Inner highlight
-    this.graphics.lineStyle(1, 0xc0a080, 0.5);
-    this.graphics.strokeRect(x + 3, y + 3, this.tileSize - 6, this.tileSize - 6);
+    console.log(`Drawing piece tile at (${x}, ${y})`);
   }
 
   /**

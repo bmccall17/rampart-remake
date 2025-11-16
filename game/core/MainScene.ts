@@ -51,6 +51,7 @@ export class MainScene extends Phaser.Scene {
   private enclosedCastles: Castle[] = [];
   private lastClickTime: number = 0;
   private lastLoggedPhase: GamePhase | null = null;
+  private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super({ key: "MainScene" });
@@ -107,7 +108,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.7.3 - Input Fix + ESC to Restart",
+      "v0.7.4 - Debug: Bright Yellow Piece + Indicators",
       {
         fontSize: "14px",
         color: "#888888",
@@ -247,6 +248,12 @@ export class MainScene extends Phaser.Scene {
       case GamePhase.BUILD:
         logger.info("Entering BUILD phase - Wall placement enabled");
         this.buildSystem.startBuildPhase();
+        const piece = this.buildSystem.getCurrentPiece();
+        if (piece) {
+          logger.info(`BUILD phase started with piece: ${piece.name} at (${piece.position.x}, ${piece.position.y})`);
+        } else {
+          logger.error("BUILD phase started but NO PIECE was spawned!");
+        }
         break;
       case GamePhase.DEPLOY:
         logger.info("Entering DEPLOY phase - Cannon placement enabled");
@@ -566,10 +573,23 @@ export class MainScene extends Phaser.Scene {
     this.pieceRenderer.clear();
 
     // Only render during BUILD phase
-    if (currentPhase !== GamePhase.BUILD) return;
+    if (currentPhase !== GamePhase.BUILD) {
+      if (this.debugPieceIndicator) {
+        this.debugPieceIndicator.setVisible(false);
+      }
+      return;
+    }
 
     const currentPiece = this.buildSystem.getCurrentPiece();
-    if (!currentPiece) return;
+    if (!currentPiece) {
+      logger.warn("No current piece to render!");
+      return;
+    }
+
+    const piecePos = currentPiece.position;
+    const pieceName = currentPiece.name;
+
+    logger.info(`Rendering piece: ${pieceName} at position (${piecePos.x}, ${piecePos.y})`);
 
     // Render the current piece
     this.pieceRenderer.renderPiece(
@@ -578,6 +598,29 @@ export class MainScene extends Phaser.Scene {
       this.mapOffsetY,
       false
     );
+
+    // Add debug indicator
+    if (!this.debugPieceIndicator) {
+      this.debugPieceIndicator = this.add.text(
+        GAME_WIDTH / 2,
+        50,
+        "",
+        {
+          fontSize: "24px",
+          color: "#00ff00",
+          fontStyle: "bold",
+          backgroundColor: "#000000",
+          padding: { x: 10, y: 5 },
+        }
+      );
+      this.debugPieceIndicator.setOrigin(0.5);
+      this.debugPieceIndicator.setDepth(3000);
+    }
+
+    this.debugPieceIndicator.setText(
+      `PIECE: ${pieceName} | POS: (${piecePos.x}, ${piecePos.y}) | USE ARROW KEYS!`
+    );
+    this.debugPieceIndicator.setVisible(true);
   }
 
   private renderCannons(): void {
