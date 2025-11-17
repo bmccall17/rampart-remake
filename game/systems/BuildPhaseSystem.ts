@@ -62,9 +62,6 @@ export class BuildPhaseSystem {
    * Get current piece
    */
   getCurrentPiece(): WallPiece | null {
-    if (!this.currentPiece) {
-      logger.warn("⚠️ getCurrentPiece() called but currentPiece is NULL!");
-    }
     return this.currentPiece;
   }
 
