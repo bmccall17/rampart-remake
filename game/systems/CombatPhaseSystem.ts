@@ -307,7 +307,15 @@ export class CombatPhaseSystem {
    */
   fireCannon(cannonId: string, targetPos: Position): void {
     const cannon = this.cannons.find((c) => c.id === cannonId);
-    if (!cannon) return;
+    if (!cannon) {
+      logger.warn("Fire cannon failed: Cannon not found", {
+        cannonId,
+        targetPos,
+        availableCannons: this.cannons.length,
+        cannonIds: this.cannons.map(c => c.id),
+      });
+      return;
+    }
 
     const dx = targetPos.x - cannon.position.x;
     const dy = targetPos.y - cannon.position.y;
@@ -327,7 +335,14 @@ export class CombatPhaseSystem {
     };
 
     this.projectiles.push(projectile);
-    logger.event("CannonFired", { cannonId, target: targetPos });
+    logger.event("CannonFired", {
+      projectileId: projectile.id,
+      cannonId,
+      cannonPosition: cannon.position,
+      target: targetPos,
+      distance: distance.toFixed(2),
+      velocity: projectile.velocity,
+    });
   }
 
   /**

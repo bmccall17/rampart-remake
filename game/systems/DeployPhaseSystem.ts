@@ -96,27 +96,57 @@ export class DeployPhaseSystem {
    * Check if a position is valid for cannon placement
    */
   isValidCannonPosition(pos: Position): boolean {
+    return this.getCannonValidationFailureReason(pos).isValid;
+  }
+
+  /**
+   * Get detailed reason why a cannon position is invalid
+   */
+  private getCannonValidationFailureReason(pos: Position): {
+    isValid: boolean;
+    reason?: string;
+    details?: any;
+  } {
     // Must be within grid bounds
     const tile = this.grid.getTile(pos.x, pos.y);
-    if (!tile) return false;
+    if (!tile) {
+      return {
+        isValid: false,
+        reason: "Position out of bounds",
+        details: { pos, gridSize: { width: this.grid.getWidth(), height: this.grid.getHeight() } },
+      };
+    }
 
     // Must be on land (not water, wall, castle, etc.)
     if (tile.type !== TileType.LAND && tile.type !== TileType.EMPTY) {
-      return false;
+      return {
+        isValid: false,
+        reason: `Invalid tile type: ${tile.type}`,
+        details: { pos, tileType: tile.type, requiredTypes: [TileType.LAND, TileType.EMPTY] },
+      };
     }
 
     // Must be inside an enclosed territory
     const key = `${pos.x},${pos.y}`;
     if (!this.enclosedTerritories.has(key)) {
-      return false;
+      return {
+        isValid: false,
+        reason: "Position not in enclosed territory",
+        details: { pos, totalEnclosedTiles: this.enclosedTerritories.size },
+      };
     }
 
     // Can't place cannon where another cannon already exists
-    if (this.cannons.some((c) => c.position.x === pos.x && c.position.y === pos.y)) {
-      return false;
+    const existingCannon = this.cannons.find((c) => c.position.x === pos.x && c.position.y === pos.y);
+    if (existingCannon) {
+      return {
+        isValid: false,
+        reason: "Cannon already exists at this position",
+        details: { pos, existingCannonId: existingCannon.id },
+      };
     }
 
-    return true;
+    return { isValid: true };
   }
 
   /**
@@ -125,13 +155,22 @@ export class DeployPhaseSystem {
   placeCannon(pos: Position): boolean {
     // Check if we have cannons available
     if (this.cannons.length >= this.availableCannonCount) {
-      logger.warn("Cannot place cannon: no cannons available");
+      logger.warn("Cannot place cannon: no cannons available", {
+        pos,
+        currentCannons: this.cannons.length,
+        availableCannons: this.availableCannonCount,
+      });
       return false;
     }
 
     // Check if position is valid
-    if (!this.isValidCannonPosition(pos)) {
-      logger.warn("Cannot place cannon: invalid position", { pos });
+    const validationResult = this.getCannonValidationFailureReason(pos);
+    if (!validationResult.isValid) {
+      logger.warn("Cannot place cannon: invalid position", {
+        pos,
+        reason: validationResult.reason,
+        details: validationResult.details,
+      });
       return false;
     }
 
@@ -145,6 +184,7 @@ export class DeployPhaseSystem {
     this.cannons.push(cannon);
 
     logger.event("CannonPlaced", {
+      cannonId: cannon.id,
       position: pos,
       totalCannons: this.cannons.length,
       remaining: this.availableCannonCount - this.cannons.length,

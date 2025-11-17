@@ -108,7 +108,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.7.4 - Debug: Bright Yellow Piece + Indicators",
+      "v0.8.0 - Enhanced Diagnostic Logging",
       {
         fontSize: "14px",
         color: "#888888",
@@ -218,11 +218,25 @@ export class MainScene extends Phaser.Scene {
       const currentPhase = this.phaseManager.getCurrentPhase();
 
       const now = this.time.now;
-      if (now - this.lastClickTime < 200) return; // Debounce
+      const timeSinceLastClick = now - this.lastClickTime;
+      if (timeSinceLastClick < 200) {
+        logger.info("Mouse click debounced (too rapid)", {
+          timeSinceLastClick: timeSinceLastClick.toFixed(0) + "ms",
+          debounceThreshold: "200ms",
+        });
+        return; // Debounce
+      }
       this.lastClickTime = now;
 
       const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
       const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      logger.info("Mouse click received", {
+        phase: currentPhase,
+        screenPos: { x: Math.floor(pointer.x), y: Math.floor(pointer.y) },
+        gridPos: { x: gridX, y: gridY },
+        button: pointer.leftButtonDown() ? "LEFT" : pointer.rightButtonDown() ? "RIGHT" : "OTHER",
+      });
 
       if (currentPhase === GamePhase.DEPLOY) {
         if (pointer.leftButtonDown()) {
@@ -237,6 +251,11 @@ export class MainScene extends Phaser.Scene {
           // Find nearest cannon and fire at click position
           this.fireNearestCannon({ x: gridX, y: gridY });
         }
+      } else {
+        logger.info("Mouse click ignored - wrong phase for mouse input", {
+          currentPhase,
+          clickPosition: { x: gridX, y: gridY },
+        });
       }
     });
 
@@ -688,7 +707,13 @@ export class MainScene extends Phaser.Scene {
   }
 
   private fireNearestCannon(targetPos: { x: number; y: number }): void {
-    if (this.cannons.length === 0) return;
+    if (this.cannons.length === 0) {
+      logger.warn("Fire attempt failed: No cannons available", {
+        targetPos,
+        currentPhase: this.phaseManager.getCurrentPhase(),
+      });
+      return;
+    }
 
     // Find nearest cannon to target
     let nearestCannon = this.cannons[0];
@@ -705,8 +730,14 @@ export class MainScene extends Phaser.Scene {
       }
     }
 
+    logger.info("Firing nearest cannon", {
+      cannonId: nearestCannon.id,
+      cannonPosition: nearestCannon.position,
+      target: targetPos,
+      distance: minDistance.toFixed(2),
+    });
+
     // Fire cannon at target
     this.combatSystem.fireCannon(nearestCannon.id, targetPos);
-    logger.info("Cannon fired", { cannonId: nearestCannon.id, target: targetPos });
   }
 }

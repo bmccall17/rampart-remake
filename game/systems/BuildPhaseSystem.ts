@@ -65,26 +65,51 @@ export class BuildPhaseSystem {
    * Move current piece
    */
   movePiece(dx: number, dy: number): boolean {
-    if (!this.currentPiece) return false;
-
-    // Try to move
-    this.currentPiece.move(dx, dy);
-
-    // Check if valid
-    if (!this.isValidPosition(this.currentPiece)) {
-      // Revert move
-      this.currentPiece.move(-dx, -dy);
+    if (!this.currentPiece) {
+      logger.warn("Move failed: No current piece available");
       return false;
     }
 
-    return true;
+    const oldPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+
+    // Try to move
+    this.currentPiece.move(dx, dy);
+    const newPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+
+    // Check if valid
+    const validationResult = this.getValidationFailureReason(this.currentPiece);
+    if (validationResult.isValid) {
+      logger.info("Piece moved successfully", {
+        piece: this.currentPiece.name,
+        from: oldPos,
+        to: newPos,
+        direction: { dx, dy },
+      });
+      return true;
+    } else {
+      // Revert move
+      this.currentPiece.move(-dx, -dy);
+      logger.warn("Move blocked", {
+        piece: this.currentPiece.name,
+        attemptedPosition: newPos,
+        direction: { dx, dy },
+        reason: validationResult.reason,
+        details: validationResult.details,
+      });
+      return false;
+    }
   }
 
   /**
    * Rotate current piece
    */
   rotatePiece(clockwise: boolean = true): boolean {
-    if (!this.currentPiece) return false;
+    if (!this.currentPiece) {
+      logger.warn("Rotate failed: No current piece available");
+      return false;
+    }
+
+    const oldRotation = (this.currentPiece as any).currentRotation || 0;
 
     // Try rotation
     if (clockwise) {
@@ -93,77 +118,176 @@ export class BuildPhaseSystem {
       this.currentPiece.rotateCounterClockwise();
     }
 
+    const newRotation = (this.currentPiece as any).currentRotation || 0;
+
     // Check if valid
-    if (!this.isValidPosition(this.currentPiece)) {
+    const validationResult = this.getValidationFailureReason(this.currentPiece);
+    if (validationResult.isValid) {
+      logger.info("Piece rotated successfully", {
+        piece: this.currentPiece.name,
+        position: this.currentPiece.position,
+        fromRotation: oldRotation,
+        toRotation: newRotation,
+        clockwise,
+      });
+      return true;
+    } else {
       // Revert rotation
       if (clockwise) {
         this.currentPiece.rotateCounterClockwise();
       } else {
         this.currentPiece.rotateClockwise();
       }
+      logger.warn("Rotation blocked", {
+        piece: this.currentPiece.name,
+        position: this.currentPiece.position,
+        attemptedRotation: newRotation,
+        clockwise,
+        reason: validationResult.reason,
+        details: validationResult.details,
+      });
       return false;
     }
-
-    return true;
   }
 
   /**
    * Check if a piece position is valid (no collisions)
    */
   isValidPosition(piece: WallPiece): boolean {
+    return this.getValidationFailureReason(piece).isValid;
+  }
+
+  /**
+   * Get detailed reason why a piece position is invalid
+   */
+  private getValidationFailureReason(piece: WallPiece): {
+    isValid: boolean;
+    reason?: string;
+    details?: any;
+  } {
     const tiles = piece.getOccupiedTiles();
 
     for (const tile of tiles) {
       // Check bounds
-      if (
-        tile.x < 0 ||
-        tile.x >= this.grid.getWidth() ||
-        tile.y < 0 ||
-        tile.y >= this.grid.getHeight()
-      ) {
-        return false;
+      if (tile.x < 0) {
+        return {
+          isValid: false,
+          reason: "Out of bounds (left edge)",
+          details: { tile, bounds: { minX: 0 } },
+        };
+      }
+      if (tile.x >= this.grid.getWidth()) {
+        return {
+          isValid: false,
+          reason: "Out of bounds (right edge)",
+          details: { tile, bounds: { maxX: this.grid.getWidth() - 1 } },
+        };
+      }
+      if (tile.y < 0) {
+        return {
+          isValid: false,
+          reason: "Out of bounds (top edge)",
+          details: { tile, bounds: { minY: 0 } },
+        };
+      }
+      if (tile.y >= this.grid.getHeight()) {
+        return {
+          isValid: false,
+          reason: "Out of bounds (bottom edge)",
+          details: { tile, bounds: { maxY: this.grid.getHeight() - 1 } },
+        };
       }
 
       // Check tile type
       const gridTile = this.grid.getTile(tile.x, tile.y);
-      if (!gridTile) return false;
+      if (!gridTile) {
+        return {
+          isValid: false,
+          reason: "Grid tile not found",
+          details: { tile },
+        };
+      }
 
       // Can't place on water, existing walls, castles, or debris
-      if (
-        gridTile.type === TileType.WATER ||
-        gridTile.type === TileType.WALL ||
-        gridTile.type === TileType.CASTLE ||
-        gridTile.type === TileType.DEBRIS ||
-        gridTile.type === TileType.CRATER
-      ) {
-        return false;
+      if (gridTile.type === TileType.WATER) {
+        return {
+          isValid: false,
+          reason: "Cannot place on water",
+          details: { tile, tileType: "WATER" },
+        };
+      }
+      if (gridTile.type === TileType.WALL) {
+        return {
+          isValid: false,
+          reason: "Cannot place on existing wall",
+          details: { tile, tileType: "WALL" },
+        };
+      }
+      if (gridTile.type === TileType.CASTLE) {
+        return {
+          isValid: false,
+          reason: "Cannot place on castle",
+          details: { tile, tileType: "CASTLE" },
+        };
+      }
+      if (gridTile.type === TileType.DEBRIS) {
+        return {
+          isValid: false,
+          reason: "Cannot place on debris",
+          details: { tile, tileType: "DEBRIS" },
+        };
+      }
+      if (gridTile.type === TileType.CRATER) {
+        return {
+          isValid: false,
+          reason: "Cannot place on crater",
+          details: { tile, tileType: "CRATER" },
+        };
       }
     }
 
-    return true;
+    return { isValid: true };
   }
 
   /**
    * Place the current piece on the grid
    */
   placePiece(): boolean {
-    if (!this.currentPiece) return false;
+    if (!this.currentPiece) {
+      logger.warn("Place failed: No current piece available");
+      return false;
+    }
 
-    if (!this.isValidPosition(this.currentPiece)) {
-      logger.warn("Cannot place piece at invalid position");
+    const validationResult = this.getValidationFailureReason(this.currentPiece);
+    if (!validationResult.isValid) {
+      logger.warn("Cannot place piece at invalid position", {
+        piece: this.currentPiece.name,
+        position: this.currentPiece.position,
+        reason: validationResult.reason,
+        details: validationResult.details,
+      });
       return false;
     }
 
     // Place walls on grid
     const tiles = this.currentPiece.getOccupiedTiles();
+    const tilesChanged: Array<{pos: Position; oldType: TileType; newType: TileType}> = [];
+
     for (const tile of tiles) {
+      const oldType = this.grid.getTile(tile.x, tile.y)?.type || TileType.EMPTY;
       this.grid.setTile(tile.x, tile.y, TileType.WALL);
+      tilesChanged.push({
+        pos: tile,
+        oldType,
+        newType: TileType.WALL,
+      });
     }
 
     logger.event("PiecePlaced", {
       piece: this.currentPiece.name,
       position: this.currentPiece.position,
       tilesPlaced: tiles.length,
+      tileChanges: tilesChanged,
     });
 
     // Spawn new piece
