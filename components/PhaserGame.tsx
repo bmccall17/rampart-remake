@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import * as Phaser from "phaser";
 import { GameConfig } from "@/game/core/GameConfig";
-import { createLogger } from "@/game/logging/Logger";
+import { createLogger, logger } from "@/game/logging/Logger";
 
-const logger = createLogger("PhaserGame", true);
+const phaserLogger = createLogger("PhaserGame", true);
 
 export default function PhaserGame() {
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -13,8 +13,20 @@ export default function PhaserGame() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !gameRef.current) {
-      logger.info("Initializing Phaser game");
-      logger.event("GameInitialized", { config: "MainScene" });
+      phaserLogger.info("Initializing Phaser game");
+      phaserLogger.event("GameInitialized", { config: "MainScene" });
+
+      // Add raw browser input instrumentation
+      window.addEventListener("keydown", (event) => {
+        logger.debug("Browser keydown", {
+          channel: "INPUT",
+          data: {
+            code: event.code,
+            key: event.key,
+            repeat: event.repeat,
+          },
+        });
+      });
 
       gameRef.current = new Phaser.Game(GameConfig);
 
@@ -30,7 +42,7 @@ export default function PhaserGame() {
 
     return () => {
       if (gameRef.current) {
-        logger.info("Destroying Phaser game");
+        phaserLogger.info("Destroying Phaser game");
         gameRef.current.destroy(true);
         gameRef.current = null;
       }

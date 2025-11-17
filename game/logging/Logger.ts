@@ -1,13 +1,30 @@
-export type LogLevel = "info" | "warn" | "error" | "event";
+export type LogLevel = "debug" | "info" | "warn" | "error" | "event";
 
 export interface LogEventPayload {
   [key: string]: unknown;
 }
 
+export interface LogOptions {
+  channel?: string;
+  data?: unknown;
+}
+
+// Debug configuration for channel filtering
+const DEBUG_CONFIG = {
+  enabled: true,
+  channels: {
+    INPUT: true,
+    PHASER: true,
+    BUILD: true,
+    GENERAL: true,
+  } as Record<string, boolean>,
+};
+
 export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   context: string;
+  channel?: string;
   message: string;
   payload?: LogEventPayload;
 }
@@ -22,36 +39,45 @@ export class Logger {
     this.enableServerLogging = enableServerLogging;
   }
 
-  private log(level: LogLevel, message: string, payload?: LogEventPayload) {
+  private log(level: LogLevel, message: string, options: LogOptions = {}) {
+    if (!DEBUG_CONFIG.enabled) return;
+
+    const channel = options.channel ?? this.context;
+    if (DEBUG_CONFIG.channels[channel] === false) return;
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
       context: this.context,
+      channel,
       message,
-      payload,
+      payload: options.data as LogEventPayload,
     };
 
     // Store in session logs
     this.sessionLogs.push(entry);
 
-    // Console output with context
-    const prefix = `[${this.context}]`;
-    const formattedMessage = payload
-      ? `${prefix} ${message} ${JSON.stringify(payload)}`
+    // Console output with channel
+    const prefix = `[${channel}]`;
+    const formattedMessage = options.data
+      ? `${prefix} ${message}`
       : `${prefix} ${message}`;
 
     switch (level) {
+      case "debug":
+        console.debug(formattedMessage, options.data ?? "");
+        break;
       case "info":
-        console.log(formattedMessage);
+        console.info(formattedMessage, options.data ?? "");
         break;
       case "warn":
-        console.warn(formattedMessage);
+        console.warn(formattedMessage, options.data ?? "");
         break;
       case "error":
-        console.error(formattedMessage);
+        console.error(formattedMessage, options.data ?? "");
         break;
       case "event":
-        console.log(`📊 ${formattedMessage}`);
+        console.log(`📊 ${formattedMessage}`, options.data ?? "");
         break;
     }
 
@@ -75,20 +101,24 @@ export class Logger {
     }
   }
 
-  info(message: string, payload?: LogEventPayload) {
-    this.log("info", message, payload);
+  debug(message: string, options?: LogOptions) {
+    this.log("debug", message, options);
   }
 
-  warn(message: string, payload?: LogEventPayload) {
-    this.log("warn", message, payload);
+  info(message: string, options?: LogOptions) {
+    this.log("info", message, options);
   }
 
-  error(message: string, payload?: LogEventPayload) {
-    this.log("error", message, payload);
+  warn(message: string, options?: LogOptions) {
+    this.log("warn", message, options);
   }
 
-  event(name: string, payload?: LogEventPayload) {
-    this.log("event", name, payload);
+  error(message: string, options?: LogOptions) {
+    this.log("error", message, options);
+  }
+
+  event(name: string, options?: LogOptions) {
+    this.log("event", name, options);
   }
 
   getSessionLogs(): LogEntry[] {
@@ -100,6 +130,17 @@ export class Logger {
   }
 }
 
-// Global logger instance
+// Global logger instance matching the spec
+const defaultLogger = new Logger("GENERAL", false);
+
+export const logger = {
+  debug: (msg: string, opts?: LogOptions) => defaultLogger.debug(msg, opts),
+  info: (msg: string, opts?: LogOptions) => defaultLogger.info(msg, opts),
+  warn: (msg: string, opts?: LogOptions) => defaultLogger.warn(msg, opts),
+  error: (msg: string, opts?: LogOptions) => defaultLogger.error(msg, opts),
+  config: DEBUG_CONFIG,
+};
+
+// Factory function for creating context-specific loggers
 export const createLogger = (context: string, enableServerLogging = false) =>
   new Logger(context, enableServerLogging);

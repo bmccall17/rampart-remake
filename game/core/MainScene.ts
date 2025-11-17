@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { createLogger } from "../logging/Logger";
+import { createLogger, logger } from "../logging/Logger";
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from "./GameConfig";
 import { Grid } from "../grid/Grid";
 import { TileRenderer } from "../grid/TileRenderer";
@@ -19,7 +19,7 @@ import { GameOverScreen } from "../ui/GameOverScreen";
 import { LevelCompleteScreen } from "../ui/LevelCompleteScreen";
 import { InputDebugDisplay } from "../ui/InputDebugDisplay";
 
-const logger = createLogger("MainScene", true);
+const sceneLogger = createLogger("MainScene", true);
 
 export class MainScene extends Phaser.Scene {
   private grid!: Grid;
@@ -58,8 +58,8 @@ export class MainScene extends Phaser.Scene {
   }
 
   create() {
-    logger.info("MainScene created");
-    logger.event("SceneCreated", { scene: "MainScene" });
+    sceneLogger.info("MainScene created");
+    sceneLogger.event("SceneCreated", { scene: "MainScene" });
 
     // Create background
     this.add.rectangle(
@@ -136,7 +136,7 @@ export class MainScene extends Phaser.Scene {
 
     // Set phase change callback
     this.phaseManager.setOnPhaseChange((event) => {
-      logger.info("Phase transition", {
+      sceneLogger.info("Phase transition", {
         fromPhase: event.fromPhase || "none",
         toPhase: event.toPhase,
         timestamp: event.timestamp,
@@ -152,7 +152,7 @@ export class MainScene extends Phaser.Scene {
     // Start the phase manager
     this.phaseManager.start(this.time.now);
 
-    logger.info("PhaseManager initialized");
+    sceneLogger.info("PhaseManager initialized");
   }
 
   private setupControls(): void {
@@ -164,11 +164,24 @@ export class MainScene extends Phaser.Scene {
     // ALTERNATIVE: Listen to raw keyboard events directly
     // This ensures we catch keyboard events even if Phaser's JustDown isn't working
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
+      // Add Phaser input instrumentation as per specification
+      logger.debug("Phaser keydown", {
+        channel: "PHASER",
+        data: { code: event.code, key: event.key },
+      });
+
       const currentPhase = this.phaseManager.getCurrentPhase();
+
+      if (currentPhase === GamePhase.BUILD) {
+        logger.debug("Keydown in BUILD phase", {
+          channel: "BUILD",
+          data: { code: event.code },
+        });
+      }
 
       // DEBUG: Press ESC to restart game and go back to BUILD phase
       if (event.code === "Escape") {
-        logger.info("ESC pressed - Restarting game");
+        sceneLogger.info("ESC pressed - Restarting game");
         this.scene.restart();
         return;
       }
@@ -176,35 +189,35 @@ export class MainScene extends Phaser.Scene {
       if (currentPhase === GamePhase.BUILD) {
         const currentPiece = this.buildSystem.getCurrentPiece();
         if (!currentPiece) {
-          logger.warn("No piece available for keyboard input");
+          sceneLogger.warn("No piece available for keyboard input");
           return;
         }
 
         switch (event.code) {
           case "ArrowLeft":
-            logger.info("LEFT key - moving piece");
+            sceneLogger.info("LEFT key - moving piece");
             this.buildSystem.movePiece(-1, 0);
             break;
           case "ArrowRight":
-            logger.info("RIGHT key - moving piece");
+            sceneLogger.info("RIGHT key - moving piece");
             this.buildSystem.movePiece(1, 0);
             break;
           case "ArrowUp":
-            logger.info("UP key - moving piece");
+            sceneLogger.info("UP key - moving piece");
             this.buildSystem.movePiece(0, -1);
             break;
           case "ArrowDown":
-            logger.info("DOWN key - moving piece");
+            sceneLogger.info("DOWN key - moving piece");
             this.buildSystem.movePiece(0, 1);
             break;
           case "KeyR":
-            logger.info("R key - rotating piece");
+            sceneLogger.info("R key - rotating piece");
             this.buildSystem.rotatePiece(true);
             break;
           case "Space":
-            logger.info("SPACE key - placing piece");
+            sceneLogger.info("SPACE key - placing piece");
             if (this.buildSystem.placePiece()) {
-              logger.info("Piece placed successfully");
+              sceneLogger.info("Piece placed successfully");
               this.tileRenderer.clear();
               this.renderMap();
             }
@@ -220,7 +233,7 @@ export class MainScene extends Phaser.Scene {
       const now = this.time.now;
       const timeSinceLastClick = now - this.lastClickTime;
       if (timeSinceLastClick < 200) {
-        logger.info("Mouse click debounced (too rapid)", {
+        sceneLogger.info("Mouse click debounced (too rapid)", {
           timeSinceLastClick: timeSinceLastClick.toFixed(0) + "ms",
           debounceThreshold: "200ms",
         });
@@ -231,7 +244,7 @@ export class MainScene extends Phaser.Scene {
       const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
       const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
 
-      logger.info("Mouse click received", {
+      sceneLogger.info("Mouse click received", {
         phase: currentPhase,
         screenPos: { x: Math.floor(pointer.x), y: Math.floor(pointer.y) },
         gridPos: { x: gridX, y: gridY },
@@ -252,14 +265,14 @@ export class MainScene extends Phaser.Scene {
           this.fireNearestCannon({ x: gridX, y: gridY });
         }
       } else {
-        logger.info("Mouse click ignored - wrong phase for mouse input", {
+        sceneLogger.info("Mouse click ignored - wrong phase for mouse input", {
           currentPhase,
           clickPosition: { x: gridX, y: gridY },
         });
       }
     });
 
-    logger.info("Controls initialized");
+    sceneLogger.info("Controls initialized");
   }
 
   private onPhaseChange(newPhase: GamePhase): void {
