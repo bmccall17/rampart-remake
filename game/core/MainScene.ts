@@ -152,6 +152,9 @@ export class MainScene extends Phaser.Scene {
     // Start the phase manager
     this.phaseManager.start(this.time.now);
 
+    // Handle initial phase since phase change callback only triggers on changes
+    this.onPhaseChange(GamePhase.BUILD);
+
     sceneLogger.info("PhaseManager initialized");
   }
 
@@ -540,8 +543,7 @@ export class MainScene extends Phaser.Scene {
   private handleBuildPhaseInput(): void {
     const currentPiece = this.buildSystem.getCurrentPiece();
     if (!currentPiece) {
-      logger.warn("No current piece available in BUILD phase!");
-      return;
+      return; // No piece available, skip input handling
     }
 
     // Move left
@@ -614,8 +616,7 @@ export class MainScene extends Phaser.Scene {
 
     const currentPiece = this.buildSystem.getCurrentPiece();
     if (!currentPiece) {
-      logger.warn("No current piece to render!");
-      return;
+      return; // No piece to render, skip rendering
     }
 
     const piecePos = currentPiece.position;
