@@ -108,7 +108,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.8.0 - Enhanced Diagnostic Logging",
+      "v0.8.1 - Piece Spawn Debugging",
       {
         fontSize: "14px",
         color: "#888888",

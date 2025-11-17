@@ -18,10 +18,21 @@ export class BuildPhaseSystem {
    * Start the build phase with a new piece
    */
   startBuildPhase(): void {
+    logger.info("🎯 startBuildPhase() called!");
     this.spawnNewPiece();
     logger.event("BuildPhaseStarted", {
       piece: this.currentPiece?.name || "none",
+      pieceExists: this.currentPiece !== null,
     });
+
+    if (!this.currentPiece) {
+      logger.error("❌ CRITICAL: Piece is NULL after spawnNewPiece()!");
+    } else {
+      logger.info("✅ Piece spawned successfully:", {
+        name: this.currentPiece.name,
+        position: this.currentPiece.position,
+      });
+    }
   }
 
   /**
@@ -51,6 +62,9 @@ export class BuildPhaseSystem {
    * Get current piece
    */
   getCurrentPiece(): WallPiece | null {
+    if (!this.currentPiece) {
+      logger.warn("⚠️ getCurrentPiece() called but currentPiece is NULL!");
+    }
     return this.currentPiece;
   }
 
@@ -384,6 +398,7 @@ export class BuildPhaseSystem {
    * Reset the build phase
    */
   reset(): void {
+    logger.warn("🔄 BuildPhaseSystem.reset() called - clearing pieces!");
     this.currentPiece = null;
     this.nextPiece = null;
   }
