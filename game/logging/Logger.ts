@@ -105,20 +105,40 @@ export class Logger {
     this.log("debug", message, options);
   }
 
-  info(message: string, options?: LogOptions) {
-    this.log("info", message, options);
+  info(message: string, options?: LogOptions | LogEventPayload) {
+    // Support both new and old signatures
+    if (options && ('channel' in options || 'data' in options)) {
+      this.log("info", message, options as LogOptions);
+    } else {
+      this.log("info", message, { data: options as LogEventPayload });
+    }
   }
 
-  warn(message: string, options?: LogOptions) {
-    this.log("warn", message, options);
+  warn(message: string, options?: LogOptions | LogEventPayload) {
+    // Support both new and old signatures
+    if (options && ('channel' in options || 'data' in options)) {
+      this.log("warn", message, options as LogOptions);
+    } else {
+      this.log("warn", message, { data: options as LogEventPayload });
+    }
   }
 
-  error(message: string, options?: LogOptions) {
-    this.log("error", message, options);
+  error(message: string, options?: LogOptions | LogEventPayload) {
+    // Support both new and old signatures
+    if (options && ('channel' in options || 'data' in options)) {
+      this.log("error", message, options as LogOptions);
+    } else {
+      this.log("error", message, { data: options as LogEventPayload });
+    }
   }
 
-  event(name: string, options?: LogOptions) {
-    this.log("event", name, options);
+  event(name: string, options?: LogOptions | LogEventPayload) {
+    // Support both new and old signatures
+    if (options && ('channel' in options || 'data' in options)) {
+      this.log("event", name, options as LogOptions);
+    } else {
+      this.log("event", name, { data: options as LogEventPayload });
+    }
   }
 
   getSessionLogs(): LogEntry[] {
@@ -135,9 +155,10 @@ const defaultLogger = new Logger("GENERAL", false);
 
 export const logger = {
   debug: (msg: string, opts?: LogOptions) => defaultLogger.debug(msg, opts),
-  info: (msg: string, opts?: LogOptions) => defaultLogger.info(msg, opts),
-  warn: (msg: string, opts?: LogOptions) => defaultLogger.warn(msg, opts),
-  error: (msg: string, opts?: LogOptions) => defaultLogger.error(msg, opts),
+  info: (msg: string, opts?: LogOptions | LogEventPayload) => defaultLogger.info(msg, opts),
+  warn: (msg: string, opts?: LogOptions | LogEventPayload) => defaultLogger.warn(msg, opts),
+  error: (msg: string, opts?: LogOptions | LogEventPayload) => defaultLogger.error(msg, opts),
+  event: (name: string, opts?: LogOptions | LogEventPayload) => defaultLogger.event(name, opts),
   config: DEBUG_CONFIG,
 };
 
