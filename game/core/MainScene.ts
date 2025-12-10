@@ -166,24 +166,24 @@ export class MainScene extends Phaser.Scene {
 
     // ALTERNATIVE: Listen to raw keyboard events directly
     // This ensures we catch keyboard events even if Phaser's JustDown isn't working
-    this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
+    const handleInput = (code: string) => {
       // Add Phaser input instrumentation as per specification
-      logger.debug("Phaser keydown", {
-        channel: "PHASER",
-        data: { code: event.code, key: event.key },
+      logger.debug("Input received", {
+        channel: "INPUT",
+        data: { code },
       });
 
       const currentPhase = this.phaseManager.getCurrentPhase();
 
       if (currentPhase === GamePhase.BUILD) {
-        logger.debug("Keydown in BUILD phase", {
+        logger.debug("Input in BUILD phase", {
           channel: "BUILD",
-          data: { code: event.code },
+          data: { code },
         });
       }
 
       // DEBUG: Press ESC to restart game and go back to BUILD phase
-      if (event.code === "Escape") {
+      if (code === "Escape") {
         sceneLogger.info("ESC pressed - Restarting game");
         this.scene.restart();
         return;
@@ -196,29 +196,35 @@ export class MainScene extends Phaser.Scene {
           return;
         }
 
-        switch (event.code) {
+        switch (code) {
           case "ArrowLeft":
-            sceneLogger.info("LEFT key - moving piece");
+          case "KeyA":
+            sceneLogger.info("LEFT input - moving piece");
             this.buildSystem.movePiece(-1, 0);
             break;
           case "ArrowRight":
-            sceneLogger.info("RIGHT key - moving piece");
+          case "KeyD":
+            sceneLogger.info("RIGHT input - moving piece");
             this.buildSystem.movePiece(1, 0);
             break;
           case "ArrowUp":
-            sceneLogger.info("UP key - moving piece");
+          case "KeyW":
+            sceneLogger.info("UP input - moving piece");
             this.buildSystem.movePiece(0, -1);
             break;
           case "ArrowDown":
-            sceneLogger.info("DOWN key - moving piece");
+          case "KeyS":
+            sceneLogger.info("DOWN input - moving piece");
             this.buildSystem.movePiece(0, 1);
             break;
           case "KeyR":
-            sceneLogger.info("R key - rotating piece");
+          case "KeyE": // E can also rotate
+            sceneLogger.info("Rotate input - rotating piece");
             this.buildSystem.rotatePiece(true);
             break;
           case "Space":
-            sceneLogger.info("SPACE key - placing piece");
+          case "Enter":
+            sceneLogger.info("Action input - placing piece");
             if (this.buildSystem.placePiece()) {
               sceneLogger.info("Piece placed successfully");
               this.tileRenderer.clear();
@@ -227,6 +233,30 @@ export class MainScene extends Phaser.Scene {
             break;
         }
       }
+    };
+
+    // 1. Phaser Keyboard Listener
+    this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
+      handleInput(event.code);
+    });
+
+    // 2. Global Window Fallback (prevents focus loss issues)
+    // We attach this at the window level to ensure we catch everything
+    const globalKeyHandler = (event: KeyboardEvent) => {
+      // Only process if we haven't processed this frame (simple debounce or check source)
+      // Actually, relying on just the global handler might be safer if Phaser's is flaky,
+      // but let's just make sure we don't double-fire if Phaser catches it too.
+      // For now, let's trust the logic is idempotent enough or fast enough.
+      // But to be safe, we can check if the target was the body (meaning lost focus from canvas)
+      if (document.activeElement !== this.game.canvas) {
+        handleInput(event.code);
+      }
+    };
+
+    // Store reference to remove later if needed
+    window.addEventListener("keydown", globalKeyHandler);
+    this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("keydown", globalKeyHandler);
     });
 
     // Setup mouse controls with event listeners
@@ -651,7 +681,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     this.debugPieceIndicator.setText(
-      `PIECE: ${pieceName} | POS: (${piecePos.x}, ${piecePos.y}) | USE ARROW KEYS!`
+      `PHASE: ${currentPhase} | PIECE: ${pieceName} | USE ARROWS/WASD!`
     );
     this.debugPieceIndicator.setVisible(true);
   }
