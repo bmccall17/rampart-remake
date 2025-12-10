@@ -1,4 +1,4 @@
-import * as Phaser from "phaser";
+import { createLogger, Logger } from "../logging/Logger";
 import { GAME_WIDTH, GAME_HEIGHT } from "../core/GameConfig";
 
 export class InputDebugDisplay {
@@ -7,9 +7,11 @@ export class InputDebugDisplay {
   private debugText: Phaser.GameObjects.Text;
   private inputHistory: string[] = [];
   private readonly MAX_HISTORY = 10;
+  private logger: Logger;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    this.logger = createLogger("InputDebug", true);
 
     // Create background panel
     const panel = this.scene.add.rectangle(
@@ -62,15 +64,22 @@ export class InputDebugDisplay {
     // Log keyboard initialization
     this.addInput("Keyboard initialized");
 
-    // Listen to ALL key events
+    // Listen to ALL key events (PHASER)
     keyboard.on("keydown", (event: KeyboardEvent) => {
-      this.addInput(`⌨️ KeyDown: ${event.key} (${event.code})`);
-      console.log("KeyDown Event:", event.key, event.code, event);
+      this.addInput(`[P] ⌨️ KeyDown: ${event.key} (${event.code})`);
+      this.logger.info("Phaser KeyDown", { key: event.key, code: event.code });
     });
 
     keyboard.on("keyup", (event: KeyboardEvent) => {
-      this.addInput(`⌨️ KeyUp: ${event.key} (${event.code})`);
-      console.log("KeyUp Event:", event.key, event.code, event);
+      this.addInput(`[P] ⌨️ KeyUp: ${event.key} (${event.code})`);
+      this.logger.info("Phaser KeyUp", { key: event.key, code: event.code });
+    });
+
+    // Listen to GLOBAL window events
+    window.addEventListener("keydown", (event: KeyboardEvent) => {
+      // Prevent dupes if possible, or just log everything with [G] prefix
+      this.addInput(`[G] ⌨️ KeyDown: ${event.key} (${event.code})`);
+      this.logger.info("Global KeyDown", { key: event.key, code: event.code });
     });
 
     // Listen to mouse events
@@ -78,8 +87,8 @@ export class InputDebugDisplay {
       const button = pointer.leftButtonDown()
         ? "LEFT"
         : pointer.rightButtonDown()
-        ? "RIGHT"
-        : "OTHER";
+          ? "RIGHT"
+          : "OTHER";
       this.addInput(`🖱️ Mouse: ${button} at (${Math.floor(pointer.x)}, ${Math.floor(pointer.y)})`);
       console.log("Pointer Down:", button, pointer.x, pointer.y, pointer);
     });

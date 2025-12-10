@@ -168,11 +168,11 @@ export class MainScene extends Phaser.Scene {
 
     // ALTERNATIVE: Listen to raw keyboard events directly
     // This ensures we catch keyboard events even if Phaser's JustDown isn't working
-    const handleInput = (code: string) => {
+    const handleInput = (code: string, source: string = "PHASER") => {
       // Add Phaser input instrumentation as per specification
-      logger.debug("Input received", {
+      sceneLogger.debug("Input received", {
         channel: "INPUT",
-        data: { code },
+        data: { code, source },
       });
 
       const currentPhase = this.phaseManager.getCurrentPhase();
@@ -243,6 +243,7 @@ export class MainScene extends Phaser.Scene {
             }
             break;
           default:
+            sceneLogger.info(`Ignored input code: ${code}`);
             this.lastLogicAction = `Ignored (${code})`;
             break;
         }
@@ -259,14 +260,9 @@ export class MainScene extends Phaser.Scene {
     // 2. Global Window Fallback (prevents focus loss issues)
     // We attach this at the window level to ensure we catch everything
     const globalKeyHandler = (event: KeyboardEvent) => {
-      // Only process if we haven't processed this frame (simple debounce or check source)
-      // Actually, relying on just the global handler might be safer if Phaser's is flaky,
-      // but let's just make sure we don't double-fire if Phaser catches it too.
-      // For now, let's trust the logic is idempotent enough or fast enough.
-      // But to be safe, we can check if the target was the body (meaning lost focus from canvas)
-      if (document.activeElement !== this.game.canvas) {
-        handleInput(event.code);
-      }
+      // FORCE global handler to always fire for debugging purposes
+      // Pass 'GLOBAL' as source to distinguish in logs
+      handleInput(event.code, "GLOBAL");
     };
 
     // Store reference to remove later if needed
