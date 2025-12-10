@@ -52,6 +52,8 @@ export class MainScene extends Phaser.Scene {
   private lastClickTime: number = 0;
   private lastLoggedPhase: GamePhase | null = null;
   private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
+  private frameCount: number = 0;
+  private lastLogicAction: string = "None";
 
   constructor() {
     super({ key: "MainScene" });
@@ -193,6 +195,7 @@ export class MainScene extends Phaser.Scene {
         const currentPiece = this.buildSystem.getCurrentPiece();
         if (!currentPiece) {
           sceneLogger.warn("No piece available for keyboard input");
+          this.lastLogicAction = "No Piece!";
           return;
         }
 
@@ -201,26 +204,31 @@ export class MainScene extends Phaser.Scene {
           case "KeyA":
             sceneLogger.info("LEFT input - moving piece");
             this.buildSystem.movePiece(-1, 0);
+            this.lastLogicAction = "Move Left";
             break;
           case "ArrowRight":
           case "KeyD":
             sceneLogger.info("RIGHT input - moving piece");
             this.buildSystem.movePiece(1, 0);
+            this.lastLogicAction = "Move Right";
             break;
           case "ArrowUp":
           case "KeyW":
             sceneLogger.info("UP input - moving piece");
             this.buildSystem.movePiece(0, -1);
+            this.lastLogicAction = "Move Up";
             break;
           case "ArrowDown":
           case "KeyS":
             sceneLogger.info("DOWN input - moving piece");
             this.buildSystem.movePiece(0, 1);
+            this.lastLogicAction = "Move Down";
             break;
           case "KeyR":
           case "KeyE": // E can also rotate
             sceneLogger.info("Rotate input - rotating piece");
             this.buildSystem.rotatePiece(true);
+            this.lastLogicAction = "Rotate";
             break;
           case "Space":
           case "Enter":
@@ -229,9 +237,17 @@ export class MainScene extends Phaser.Scene {
               sceneLogger.info("Piece placed successfully");
               this.tileRenderer.clear();
               this.renderMap();
+              this.lastLogicAction = "Placed";
+            } else {
+              this.lastLogicAction = "Place Failed";
             }
             break;
+          default:
+            this.lastLogicAction = `Ignored (${code})`;
+            break;
         }
+      } else {
+        this.lastLogicAction = `Wrong Phase (${currentPhase})`;
       }
     };
 
@@ -680,8 +696,9 @@ export class MainScene extends Phaser.Scene {
       this.debugPieceIndicator.setDepth(3000);
     }
 
+    this.frameCount++;
     this.debugPieceIndicator.setText(
-      `PHASE: ${currentPhase} | PIECE: ${pieceName} | USE ARROWS/WASD!`
+      `PHASE: ${currentPhase} | PIECE: ${pieceName}\nACTION: ${this.lastLogicAction} | FRAME: ${this.frameCount}\nARROWS/WASD to Move`
     );
     this.debugPieceIndicator.setVisible(true);
   }
