@@ -47,6 +47,7 @@ export class MainScene extends Phaser.Scene {
   private score: number = 0;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keySpace!: Phaser.Input.Keyboard.Key;
+  private lastMoveTime: number = 0;
   private keyR!: Phaser.Input.Keyboard.Key;
   private enclosedCastles: Castle[] = [];
   private lastClickTime: number = 0;
@@ -546,7 +547,7 @@ export class MainScene extends Phaser.Scene {
 
     // Handle phase-specific input
     if (currentPhase === GamePhase.BUILD) {
-      this.handleBuildPhaseInput();
+      this.handlePlayerInput();
     } else if (currentPhase === GamePhase.DEPLOY) {
       this.handleDeployPhaseInput();
     } else if (currentPhase === GamePhase.COMBAT) {
@@ -560,7 +561,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Render current piece or cannons
-    this.renderCurrentPiece();
+    this.renderPlayer();
     this.renderCannons();
     this.renderCombat();
 
@@ -582,38 +583,44 @@ export class MainScene extends Phaser.Scene {
     );
   }
 
-  private handleBuildPhaseInput(): void {
+  private handlePlayerInput(): void {
     const currentPiece = this.buildSystem.getCurrentPiece();
     if (!currentPiece) {
       return; // No piece available, skip input handling
     }
 
+    const MOVE_DELAY = 150; // Milliseconds
+    const now = this.time.now;
+
+    if (now - this.lastMoveTime < MOVE_DELAY) {
+      return;
+    }
+
+    let moved = false;
+
     // Move left
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
-      logger.info("Left arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(-1, 0);
-      logger.info(`Piece moved left: ${moved}`);
+    if (this.cursors.left.isDown) {
+      this.buildSystem.movePiece(-1, 0);
+      moved = true;
     }
-
     // Move right
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
-      logger.info("Right arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(1, 0);
-      logger.info(`Piece moved right: ${moved}`);
+    else if (this.cursors.right.isDown) {
+      this.buildSystem.movePiece(1, 0);
+      moved = true;
     }
-
     // Move up
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
-      logger.info("Up arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, -1);
-      logger.info(`Piece moved up: ${moved}`);
+    else if (this.cursors.up.isDown) {
+      this.buildSystem.movePiece(0, -1);
+      moved = true;
+    }
+    // Move down
+    else if (this.cursors.down.isDown) {
+      this.buildSystem.movePiece(0, 1);
+      moved = true;
     }
 
-    // Move down
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
-      logger.info("Down arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, 1);
-      logger.info(`Piece moved down: ${moved}`);
+    if (moved) {
+      this.lastMoveTime = now;
     }
 
     // Rotate
@@ -642,7 +649,7 @@ export class MainScene extends Phaser.Scene {
     // This method is kept for future keyboard-based cannon controls if needed
   }
 
-  private renderCurrentPiece(): void {
+  private renderPlayer(): void {
     const currentPhase = this.phaseManager.getCurrentPhase();
 
     // Clear previous piece rendering
