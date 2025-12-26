@@ -54,6 +54,7 @@ export class MainScene extends Phaser.Scene {
   private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
   private frameCount: number = 0;
   private lastLogicAction: string = "None";
+  private blockedMoveMessage: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super({ key: "MainScene" });
@@ -588,32 +589,38 @@ export class MainScene extends Phaser.Scene {
       return; // No piece available, skip input handling
     }
 
+    let moveResult = { moved: true, reason: '' };
+
     // Move left
     if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
       logger.info("Left arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(-1, 0);
-      logger.info(`Piece moved left: ${moved}`);
+      moveResult = this.buildSystem.movePiece(-1, 0);
+      logger.info(`Piece moved left: ${moveResult.moved}`);
     }
 
     // Move right
     if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
       logger.info("Right arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(1, 0);
-      logger.info(`Piece moved right: ${moved}`);
+      moveResult = this.buildSystem.movePiece(1, 0);
+      logger.info(`Piece moved right: ${moveResult.moved}`);
     }
 
     // Move up
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
       logger.info("Up arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, -1);
-      logger.info(`Piece moved up: ${moved}`);
+      moveResult = this.buildSystem.movePiece(0, -1);
+      logger.info(`Piece moved up: ${moveResult.moved}`);
     }
 
     // Move down
     if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
       logger.info("Down arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, 1);
-      logger.info(`Piece moved down: ${moved}`);
+      moveResult = this.buildSystem.movePiece(0, 1);
+      logger.info(`Piece moved down: ${moveResult.moved}`);
+    }
+
+    if (!moveResult.moved) {
+      this.showBlockedMoveMessage(moveResult.reason);
     }
 
     // Rotate
@@ -633,8 +640,36 @@ export class MainScene extends Phaser.Scene {
         this.renderMap();
       } else {
         logger.warn("Failed to place piece");
+        this.showBlockedMoveMessage("Cannot place piece here");
       }
     }
+  }
+
+  private showBlockedMoveMessage(reason: string): void {
+    if (this.blockedMoveMessage) {
+      this.blockedMoveMessage.destroy();
+    }
+
+    this.blockedMoveMessage = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 100,
+      `Move Blocked: ${reason}`,
+      {
+        fontSize: "18px",
+        color: "#ff0000",
+        backgroundColor: "#000000",
+        padding: { x: 10, y: 5 },
+      }
+    );
+    this.blockedMoveMessage.setOrigin(0.5);
+    this.blockedMoveMessage.setDepth(4000);
+
+    this.time.delayedCall(2000, () => {
+      if (this.blockedMoveMessage) {
+        this.blockedMoveMessage.destroy();
+        this.blockedMoveMessage = null;
+      }
+    });
   }
 
   private handleDeployPhaseInput(): void {
