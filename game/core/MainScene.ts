@@ -36,6 +36,7 @@ export class MainScene extends Phaser.Scene {
   private gameStateManager!: GameStateManager;
   private gameOverScreen!: GameOverScreen;
   private levelCompleteScreen!: LevelCompleteScreen;
+  private blockedMoveMessage: Phaser.GameObjects.Text | null = null;
   private inputDebugDisplay!: InputDebugDisplay;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
@@ -54,7 +55,6 @@ export class MainScene extends Phaser.Scene {
   private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
   private frameCount: number = 0;
   private lastLogicAction: string = "None";
-  private blockedMoveMessage: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super({ key: "MainScene" });
@@ -583,44 +583,79 @@ export class MainScene extends Phaser.Scene {
     );
   }
 
+  private showBlockedMoveMessage(message: string): void {
+    // If a message is already showing, destroy it first
+    if (this.blockedMoveMessage) {
+      this.blockedMoveMessage.destroy();
+    }
+
+    // Create a new text object for the message
+    this.blockedMoveMessage = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 100, // Position it near the bottom
+      message,
+      {
+        fontSize: "24px",
+        color: "#ff0000", // Red color for warnings
+        fontStyle: "bold",
+        backgroundColor: "#000000",
+        padding: { x: 10, y: 5 },
+      }
+    );
+    this.blockedMoveMessage.setOrigin(0.5);
+    this.blockedMoveMessage.setDepth(4000); // Make sure it's on top
+
+    // Set a timer to destroy the message after a few seconds
+    this.time.delayedCall(2000, () => {
+      if (this.blockedMoveMessage) {
+        this.blockedMoveMessage.destroy();
+        this.blockedMoveMessage = null;
+      }
+    });
+  }
+
   private handleBuildPhaseInput(): void {
     const currentPiece = this.buildSystem.getCurrentPiece();
     if (!currentPiece) {
       return; // No piece available, skip input handling
     }
 
-    let moveResult = { moved: true, reason: '' };
+    let moveResult: { moved: boolean; reason: string };
 
     // Move left
     if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
       logger.info("Left arrow pressed - moving piece");
       moveResult = this.buildSystem.movePiece(-1, 0);
-      logger.info(`Piece moved left: ${moveResult.moved}`);
+      if (!moveResult.moved) {
+        this.showBlockedMoveMessage(`Move Blocked: ${moveResult.reason}`);
+      }
     }
 
     // Move right
     if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
       logger.info("Right arrow pressed - moving piece");
       moveResult = this.buildSystem.movePiece(1, 0);
-      logger.info(`Piece moved right: ${moveResult.moved}`);
+      if (!moveResult.moved) {
+        this.showBlockedMoveMessage(`Move Blocked: ${moveResult.reason}`);
+      }
     }
 
     // Move up
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
       logger.info("Up arrow pressed - moving piece");
       moveResult = this.buildSystem.movePiece(0, -1);
-      logger.info(`Piece moved up: ${moveResult.moved}`);
+      if (!moveResult.moved) {
+        this.showBlockedMoveMessage(`Move Blocked: ${moveResult.reason}`);
+      }
     }
 
     // Move down
     if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
       logger.info("Down arrow pressed - moving piece");
       moveResult = this.buildSystem.movePiece(0, 1);
-      logger.info(`Piece moved down: ${moveResult.moved}`);
-    }
-
-    if (!moveResult.moved) {
-      this.showBlockedMoveMessage(moveResult.reason);
+      if (!moveResult.moved) {
+        this.showBlockedMoveMessage(`Move Blocked: ${moveResult.reason}`);
+      }
     }
 
     // Rotate
@@ -640,36 +675,8 @@ export class MainScene extends Phaser.Scene {
         this.renderMap();
       } else {
         logger.warn("Failed to place piece");
-        this.showBlockedMoveMessage("Cannot place piece here");
       }
     }
-  }
-
-  private showBlockedMoveMessage(reason: string): void {
-    if (this.blockedMoveMessage) {
-      this.blockedMoveMessage.destroy();
-    }
-
-    this.blockedMoveMessage = this.add.text(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 100,
-      `Move Blocked: ${reason}`,
-      {
-        fontSize: "18px",
-        color: "#ff0000",
-        backgroundColor: "#000000",
-        padding: { x: 10, y: 5 },
-      }
-    );
-    this.blockedMoveMessage.setOrigin(0.5);
-    this.blockedMoveMessage.setDepth(4000);
-
-    this.time.delayedCall(2000, () => {
-      if (this.blockedMoveMessage) {
-        this.blockedMoveMessage.destroy();
-        this.blockedMoveMessage = null;
-      }
-    });
   }
 
   private handleDeployPhaseInput(): void {

@@ -75,17 +75,26 @@ export class BuildPhaseSystem {
   /**
    * Move current piece
    */
-  movePiece(dx: number, dy: number): { moved: boolean; reason: string } {
+  movePiece(
+    dx: number,
+    dy: number
+  ): { moved: boolean; reason: string } {
     if (!this.currentPiece) {
       logger.warn("Move failed: No current piece available");
-      return { moved: false, reason: "No active piece" };
+      return { moved: false, reason: "No piece to move" };
     }
 
-    const oldPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+    const oldPos = {
+      x: this.currentPiece.position.x,
+      y: this.currentPiece.position.y,
+    };
 
     // Try to move
     this.currentPiece.move(dx, dy);
-    const newPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+    const newPos = {
+      x: this.currentPiece.position.x,
+      y: this.currentPiece.position.y,
+    };
 
     // Check if valid
     const validationResult = this.getValidationFailureReason(this.currentPiece);
@@ -107,7 +116,10 @@ export class BuildPhaseSystem {
         reason: validationResult.reason,
         details: validationResult.details,
       });
-      return { moved: false, reason: validationResult.reason || "Unknown reason" };
+      return {
+        moved: false,
+        reason: validationResult.reason || "Unknown reason",
+      };
     }
   }
 
