@@ -75,10 +75,10 @@ export class BuildPhaseSystem {
   /**
    * Move current piece
    */
-  movePiece(dx: number, dy: number): boolean {
+  movePiece(dx: number, dy: number): { moved: boolean; reason: string } {
     if (!this.currentPiece) {
       logger.warn("Move failed: No current piece available");
-      return false;
+      return { moved: false, reason: "No active piece" };
     }
 
     const oldPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
@@ -96,7 +96,7 @@ export class BuildPhaseSystem {
         to: newPos,
         direction: { dx, dy },
       });
-      return true;
+      return { moved: true, reason: "" };
     } else {
       // Revert move
       this.currentPiece.move(-dx, -dy);
@@ -107,7 +107,7 @@ export class BuildPhaseSystem {
         reason: validationResult.reason,
         details: validationResult.details,
       });
-      return false;
+      return { moved: false, reason: validationResult.reason || "Unknown reason" };
     }
   }
 
