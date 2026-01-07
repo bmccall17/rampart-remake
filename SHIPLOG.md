@@ -1,6 +1,6 @@
 # SHIPLOG - Rampart Remake
 
-## v0.0.7 - Input & Map Overhaul (2026-01-07)
+## v0.8.0 - Input & Map Overhaul (2026-01-07)
 
 ### Major Breakthroughs
 
