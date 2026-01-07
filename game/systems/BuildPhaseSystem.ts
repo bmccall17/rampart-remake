@@ -39,21 +39,26 @@ export class BuildPhaseSystem {
    * Spawn a new random piece
    */
   spawnNewPiece(): void {
+    // Spawn in center of grid (valid playable area)
+    const centerX = Math.floor(this.grid.getWidth() / 2);
+    const centerY = Math.floor(this.grid.getHeight() / 2);
+
     // Move next piece to current
     if (this.nextPiece) {
       this.currentPiece = this.nextPiece;
+      // Reposition to center since next piece was also at center
+      this.currentPiece.move(0, 0); // Reset to ensure position is set
     } else {
-      // First piece
-      const centerX = Math.floor(this.grid.getWidth() / 2);
-      this.currentPiece = WallPiece.createRandom({ x: centerX, y: 0 });
+      // First piece - spawn at center
+      this.currentPiece = WallPiece.createRandom({ x: centerX, y: centerY });
     }
 
-    // Generate next piece
-    const centerX = Math.floor(this.grid.getWidth() / 2);
-    this.nextPiece = WallPiece.createRandom({ x: centerX, y: 0 });
+    // Generate next piece at center position
+    this.nextPiece = WallPiece.createRandom({ x: centerX, y: centerY });
 
     logger.info("New piece spawned", {
       current: this.currentPiece.name,
+      currentPos: this.currentPiece.position,
       next: this.nextPiece.name,
     });
   }
