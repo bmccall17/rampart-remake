@@ -19,15 +19,22 @@ export class DeployPhaseSystem {
    */
   startDeployPhase(enclosedCastles: Castle[]): void {
     // Calculate available cannons based on enclosed castles
-    this.availableCannonCount = enclosedCastles.reduce((count, castle) => {
+    // Base: 2 for home castle, 1 for each regular castle
+    let baseCannons = enclosedCastles.reduce((count, castle) => {
       return count + (castle.isHome ? 2 : 1);
     }, 0);
+
+    // Bonus cannon for enclosing multiple castles
+    const bonusCannons = enclosedCastles.length > 1 ? 1 : 0;
+    this.availableCannonCount = baseCannons + bonusCannons;
 
     // Calculate enclosed territories (flood fill from each castle)
     this.calculateEnclosedTerritories(enclosedCastles);
 
     logger.event("DeployPhaseStarted", {
       availableCannons: this.availableCannonCount,
+      baseCannons,
+      bonusCannons,
       enclosedCastles: enclosedCastles.length,
     });
   }
