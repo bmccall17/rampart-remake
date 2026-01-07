@@ -336,11 +336,11 @@ export class MainScene extends Phaser.Scene {
         }
       } else if (currentPhase === GamePhase.COMBAT) {
         if (pointer.leftButtonDown()) {
-          // Fire closest available cannon at click position
+          // Fire closest available cannon at click position (grid coords for collision)
           const firedProjectileId = this.fireClosestAvailableCannon({ x: gridX, y: gridY });
           if (firedProjectileId) {
-            // Store target position for marker
-            this.targetMarkers.set(firedProjectileId, { x: gridX, y: gridY });
+            // Store target position for marker in SCREEN pixels (not grid coords)
+            this.targetMarkers.set(firedProjectileId, { x: pointer.x, y: pointer.y });
           }
         }
       } else {
@@ -878,7 +878,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   /**
-   * Draw target markers where cannons are aimed
+   * Draw target markers where cannons are aimed (pixel-precise)
    */
   private drawTargetMarkers(): void {
     const projectiles = this.combatSystem.getProjectiles();
@@ -891,28 +891,25 @@ export class MainScene extends Phaser.Scene {
       }
     }
 
-    // Draw remaining markers
+    // Draw remaining markers (target positions are already in screen pixels)
     for (const [, target] of this.targetMarkers) {
-      const screenX = this.mapOffsetX + target.x * TILE_SIZE + TILE_SIZE / 2;
-      const screenY = this.mapOffsetY + target.y * TILE_SIZE + TILE_SIZE / 2;
-
       // Draw faint target marker
       this.crosshairGraphics.lineStyle(1, 0xff6600, 0.4);
 
       // Small X marker
       const markerSize = 6;
       this.crosshairGraphics.beginPath();
-      this.crosshairGraphics.moveTo(screenX - markerSize, screenY - markerSize);
-      this.crosshairGraphics.lineTo(screenX + markerSize, screenY + markerSize);
+      this.crosshairGraphics.moveTo(target.x - markerSize, target.y - markerSize);
+      this.crosshairGraphics.lineTo(target.x + markerSize, target.y + markerSize);
       this.crosshairGraphics.strokePath();
 
       this.crosshairGraphics.beginPath();
-      this.crosshairGraphics.moveTo(screenX + markerSize, screenY - markerSize);
-      this.crosshairGraphics.lineTo(screenX - markerSize, screenY + markerSize);
+      this.crosshairGraphics.moveTo(target.x + markerSize, target.y - markerSize);
+      this.crosshairGraphics.lineTo(target.x - markerSize, target.y + markerSize);
       this.crosshairGraphics.strokePath();
 
       // Circle around target
-      this.crosshairGraphics.strokeCircle(screenX, screenY, markerSize + 2);
+      this.crosshairGraphics.strokeCircle(target.x, target.y, markerSize + 2);
     }
   }
 }
