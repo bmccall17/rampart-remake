@@ -114,7 +114,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.8.0 - Input & Map Overhaul",
+      "v0.9.0 - Ship AI & Repairs",
       {
         fontSize: "14px",
         color: "#888888",

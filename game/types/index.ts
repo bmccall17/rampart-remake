@@ -44,6 +44,8 @@ export interface Cannon {
   maxHealth: number;
 }
 
+export type ShipType = "scout" | "destroyer" | "frigate";
+
 export interface Ship {
   id: string;
   position: Position;
@@ -54,6 +56,9 @@ export interface Ship {
   pathIndex: number;
   velocity: { x: number; y: number };
   isAlive: boolean;
+  shipType: ShipType;
+  fireRate: number; // Probability of firing per frame (0-1)
+  damage: number; // Damage per projectile
 }
 
 export interface Projectile {

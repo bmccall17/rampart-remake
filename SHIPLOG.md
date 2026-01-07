@@ -1,5 +1,141 @@
 # SHIPLOG - Rampart Remake
 
+  Suggested Roadmap for v0.9.0+
+
+  🎯 High Priority (Core Gameplay)
+
+  | Feature               | Description                                                    | Complexity |
+  |-----------------------|----------------------------------------------------------------|------------|
+  | Ship AI Improvements  | Smarter targeting (walls, cannons, castles), varied ship types | Medium     |
+  | Level Progression     | Increasing difficulty (more ships, faster, tougher)            | Low        |
+  | Wall Repair Mechanics | Craters can be filled, damaged walls rebuilt                   | Medium     |
+
+  🔊 Polish & Feel
+
+  | Feature        | Description                                                  | Complexity |
+  |----------------|--------------------------------------------------------------|------------|
+  | Sound Effects  | Cannon fire, explosions, placement sounds, phase transitions | Medium     |
+  | Music          | Background music, victory/defeat jingles                     | Low        |
+  | Visual Effects | Explosions, smoke, water splashes, screen shake              | Medium     |
+  | Score Display  | End-of-round breakdown, high score table                     | Low        |
+
+  🎮 Advanced Features
+
+  | Feature          | Description                                                 | Complexity |
+  |------------------|-------------------------------------------------------------|------------|
+  | Multiplayer      | 2-player local or networked play (original Rampart feature) | High       |
+  | Multiple Islands | Different map layouts, themed islands                       | Medium     |
+  | Power-ups        | Special cannons, faster build, extra time                   | Medium     |
+  | Mobile Support   | Touch controls for BUILD/DEPLOY/COMBAT                      | Medium     |
+
+
+## v0.9.0 - Ship AI & Repairs (2026-01-07)
+
+### New Features
+
+#### 1. Ship Type Variety
+**Three distinct ship classes with unique stats:**
+
+| Type | Health | Speed | Fire Rate | Damage | Visual |
+|------|--------|-------|-----------|--------|--------|
+| Scout | 2 HP | Fast (0.8) | High | 1 | Small, light brown, yellow sail |
+| Frigate | 3 HP | Medium (0.5) | Medium | 1 | Medium, brown, white sail |
+| Destroyer | 5 HP | Slow (0.3) | Low | 2 | Large, dark, red sail |
+
+**Spawn Distribution:** 40% Scouts, 35% Frigates, 25% Destroyers
+
+#### 2. Smart Ship AI
+**Ships now use prioritized targeting instead of random fire:**
+- 70% chance to use smart targeting
+- **Priority 1:** Cannons (50% chance) - disarm player defenses
+- **Priority 2:** Walls (40% chance) - break enclosures
+- **Priority 3:** Castles (30% chance) - strategic targets
+- **Fallback:** Random land tiles for unpredictability
+- Ships target the closest object in each priority category
+
+#### 3. Wall Repair Mechanics
+**Craters and debris can now be repaired during BUILD phase:**
+- Place wall pieces directly over **craters** to fill them
+- Place wall pieces over **debris** to clear destroyed cannons
+- Repair tiles show as **green** (valid placement)
+- Allows rebuilding defenses after combat damage
+
+---
+
+### Files Changed
+- `game/types/index.ts` - Added ShipType, fireRate, damage to Ship interface
+- `game/systems/CombatPhaseSystem.ts` - Ship types, smart targeting AI
+- `game/systems/ShipRenderer.ts` - Type-specific ship visuals
+- `game/systems/BuildPhaseSystem.ts` - Wall repair mechanics
+
+---
+
+## v0.8.1 - Combat Polish (2026-01-07)
+
+### New Features
+
+#### 1. Viewport Scale Fix
+**Problem:** Ships were firing before being visible - map was larger than viewport.
+
+**Solution:**
+- Reduced `TILE_SIZE` from 32px to 16px
+- Map (48×36 tiles) now fits within 1024×768 canvas
+
+#### 2. Cannon Damage System
+**Problem:** Ship cannonballs only destroyed walls, not player cannons.
+
+**Solution:**
+- Cannons now have **3 health points**
+- Enemy projectiles check for cannon hits before terrain
+- 3 hits destroys a cannon (leaves debris)
+
+#### 3. Smart Cannon Firing
+**Problem:** Only nearest cannon fired, even if it was reloading.
+
+**Solution:**
+- Click fires **closest available cannon**
+- If closest has projectile in flight → tries next closest
+- Continues until one fires or all are busy
+
+#### 4. Lofted 3D Cannonball Arc
+**Problem:** Cannonballs looked flat, no sense of trajectory.
+
+**Solution:**
+- Projectiles track start, target, and progress (0→1)
+- Ball **scales up** on rise (3px → 7px radius at apex)
+- Ball **scales down** on fall (7px → 3px at impact)
+- Ball rises **12px** at apex then falls
+- Shadow on ground fades as ball rises
+
+#### 5. Custom Combat Crosshair
+**Problem:** Default cursor didn't feel tactical.
+
+**Solution:**
+- **X-shaped crosshair** during COMBAT phase
+- Normal: 16px wide, orange, 80% opacity
+- On click: **narrows to 8px**, thicker, 100% opacity
+- Default cursor hidden during combat
+
+#### 6. Target Markers
+**Problem:** No indication of where shots were aimed.
+
+**Solution:**
+- Faint **X marker + circle** at each target location
+- Markers persist until projectile lands
+- Auto-cleanup when projectiles deactivate
+
+---
+
+### Files Changed
+- `game/core/GameConfig.ts` - TILE_SIZE 32→16
+- `game/core/MainScene.ts` - Crosshair, target markers, cursor hiding
+- `game/systems/CombatPhaseSystem.ts` - Cannon damage, arc tracking
+- `game/systems/ProjectileRenderer.ts` - 3D arc rendering
+- `game/systems/DeployPhaseSystem.ts` - Cannon health initialization
+- `game/types/index.ts` - Cannon health, projectile arc fields
+
+---
+
 ## v0.8.0 - Input & Map Overhaul (2026-01-07)
 
 ### Major Breakthroughs

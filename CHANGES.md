@@ -1,5 +1,52 @@
 # Change Log
 
+## Version 0.9.0 - Ship AI & Repairs (2026-01-07)
+
+### New Features
+- **Ship Type Variety**: Three distinct ship classes with unique stats
+  - Scout: 2 HP, fast (0.8 speed), high fire rate, small/light visuals
+  - Frigate: 3 HP, medium (0.5 speed), standard fire rate, medium/brown visuals
+  - Destroyer: 5 HP, slow (0.3 speed), low fire rate, large/dark visuals with red sail
+  - Spawn distribution: 40% Scouts, 35% Frigates, 25% Destroyers
+- **Smart Ship AI**: Prioritized targeting instead of random fire
+  - 70% chance to use smart targeting
+  - Priority 1: Cannons (50%) - disarm player defenses
+  - Priority 2: Walls (40%) - break enclosures
+  - Priority 3: Castles (30%) - strategic targets
+  - Fallback: Random land tiles for unpredictability
+- **Wall Repair Mechanics**: Craters and debris can be repaired during BUILD phase
+  - Place wall pieces directly over craters to fill them
+  - Place wall pieces over debris to clear destroyed cannons
+  - Repair tiles show as green (valid placement)
+
+### Files Changed
+- `game/types/index.ts` - Added ShipType, fireRate, damage to Ship interface
+- `game/systems/CombatPhaseSystem.ts` - Ship types, smart targeting AI
+- `game/systems/ShipRenderer.ts` - Type-specific ship visuals
+- `game/systems/BuildPhaseSystem.ts` - Wall repair mechanics
+
+---
+
+## Version 0.8.1 - Combat Polish (2026-01-07)
+
+### New Features
+- **Viewport Scale Fix**: Reduced TILE_SIZE from 32px to 16px so full map is visible
+- **Cannon Damage System**: Cannons have 3 HP, destroyed by enemy fire (leaves debris)
+- **Smart Cannon Firing**: Fires closest available cannon, skips those reloading
+- **Lofted 3D Cannonball Arc**: Projectiles scale up/down with arc, shadow fades as ball rises
+- **Custom Combat Crosshair**: X-shaped crosshair that narrows on click, cursor hidden in combat
+- **Target Markers**: Faint markers show where shots are aimed until projectile lands
+
+### Files Changed
+- `game/core/GameConfig.ts` - TILE_SIZE 32→16
+- `game/core/MainScene.ts` - Crosshair, target markers, cursor management
+- `game/systems/CombatPhaseSystem.ts` - Cannon damage, arc tracking
+- `game/systems/ProjectileRenderer.ts` - 3D arc rendering with shadow
+- `game/systems/DeployPhaseSystem.ts` - Cannon health initialization
+- `game/types/index.ts` - Cannon health/maxHealth, projectile arc fields
+
+---
+
 ## Version 0.8.0 - Input & Map Overhaul (2026-01-07)
 
 ### New Features

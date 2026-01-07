@@ -35,7 +35,7 @@ export class CombatPhaseSystem {
   }
 
   /**
-   * Spawn a wave of ships along coastlines
+   * Spawn a wave of ships along coastlines with varied ship types
    */
   private spawnShipWave(): void {
     const spawnPoints = this.findCoastlineSpawnPoints();
@@ -50,22 +50,61 @@ export class CombatPhaseSystem {
       // Generate path towards castles
       const path = this.generateShipPath(spawnPoint);
 
+      // Randomly assign ship type with weighted probabilities
+      const shipType = this.getRandomShipType();
+      const shipStats = this.getShipStats(shipType);
+
       const ship: Ship = {
         id: `ship_${Date.now()}_${i}`,
         position: { ...spawnPoint },
-        health: 3,
-        maxHealth: 3,
-        speed: 0.5, // tiles per second
+        health: shipStats.health,
+        maxHealth: shipStats.health,
+        speed: shipStats.speed,
         path,
         pathIndex: 0,
         velocity: { x: 0, y: 0 },
         isAlive: true,
+        shipType: shipType,
+        fireRate: shipStats.fireRate,
+        damage: shipStats.damage,
       };
 
       this.ships.push(ship);
     }
 
-    logger.info(`Spawned ${this.ships.length} ships`);
+    logger.info(`Spawned ${this.ships.length} ships`, {
+      types: this.ships.map(s => s.shipType),
+    });
+  }
+
+  /**
+   * Get random ship type with weighted probabilities
+   */
+  private getRandomShipType(): "scout" | "destroyer" | "frigate" {
+    const roll = Math.random();
+    if (roll < 0.4) return "scout";      // 40% scouts
+    if (roll < 0.75) return "frigate";   // 35% frigates
+    return "destroyer";                   // 25% destroyers
+  }
+
+  /**
+   * Get stats for each ship type
+   */
+  private getShipStats(type: "scout" | "destroyer" | "frigate"): {
+    health: number;
+    speed: number;
+    fireRate: number;
+    damage: number;
+  } {
+    switch (type) {
+      case "scout":
+        return { health: 2, speed: 0.8, fireRate: 0.004, damage: 1 };
+      case "destroyer":
+        return { health: 5, speed: 0.3, fireRate: 0.002, damage: 2 };
+      case "frigate":
+      default:
+        return { health: 3, speed: 0.5, fireRate: 0.003, damage: 1 };
+    }
   }
 
   /**
@@ -181,8 +220,8 @@ export class CombatPhaseSystem {
         }
       }
 
-      // Ships fire at random intervals
-      if (Math.random() < 0.002) {
+      // Ships fire based on their fire rate
+      if (Math.random() < ship.fireRate) {
         this.shipFireProjectile(ship);
       }
     }
@@ -196,7 +235,8 @@ export class CombatPhaseSystem {
   }
 
   /**
-   * Ship fires a projectile at a random land tile
+   * Ship fires a projectile using smart targeting AI
+   * Priority: Cannons > Walls > Castles > Random Land
    */
   private shipFireProjectile(ship: Ship): void {
     // Only allow one projectile per ship at a time
@@ -204,26 +244,13 @@ export class CombatPhaseSystem {
       return;
     }
 
-    // Find a random land tile to shoot at
-    const landTiles: Position[] = [];
-    const width = this.grid.getWidth();
-    const height = this.grid.getHeight();
+    // Smart targeting: Find the best target
+    const target = this.findSmartTarget(ship);
+    if (!target) return;
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const tile = this.grid.getTile(x, y);
-        if (tile && tile.type === TileType.LAND) {
-          landTiles.push({ x, y });
-        }
-      }
-    }
-
-    if (landTiles.length === 0) return;
-
-    const target = landTiles[Math.floor(Math.random() * landTiles.length)];
     const startPos = { ...ship.position };
-    const dx = target.x - startPos.x;
-    const dy = target.y - startPos.y;
+    const dx = target.position.x - startPos.x;
+    const dy = target.position.y - startPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const speed = 5; // tiles per second
 
@@ -236,15 +263,111 @@ export class CombatPhaseSystem {
       },
       source: "enemy",
       sourceId: ship.id,
-      damage: 1,
+      damage: ship.damage,
       isActive: true,
       startPosition: startPos,
-      targetPosition: { ...target },
+      targetPosition: { ...target.position },
       progress: 0,
     };
 
     this.projectiles.push(projectile);
-    logger.info("Ship fired projectile", { shipId: ship.id });
+    logger.info("Ship fired projectile", {
+      shipId: ship.id,
+      shipType: ship.shipType,
+      targetType: target.type,
+      targetPos: target.position,
+    });
+  }
+
+  /**
+   * Find the best target for a ship using prioritized AI
+   */
+  private findSmartTarget(ship: Ship): { position: Position; type: string } | null {
+    const width = this.grid.getWidth();
+    const height = this.grid.getHeight();
+
+    // Collect potential targets by priority
+    const cannonTargets: Position[] = [];
+    const wallTargets: Position[] = [];
+    const castleTargets: Position[] = [];
+    const landTargets: Position[] = [];
+
+    // Check cannons first (highest priority)
+    for (const cannon of this.cannons) {
+      cannonTargets.push({ ...cannon.position });
+    }
+
+    // Scan grid for walls, castles, and land
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tile = this.grid.getTile(x, y);
+        if (!tile) continue;
+
+        switch (tile.type) {
+          case TileType.WALL:
+            wallTargets.push({ x, y });
+            break;
+          case TileType.CASTLE:
+            castleTargets.push({ x, y });
+            break;
+          case TileType.LAND:
+            landTargets.push({ x, y });
+            break;
+        }
+      }
+    }
+
+    // Prioritized targeting with some randomness
+    // 70% chance to use priority system, 30% random for unpredictability
+    const useSmartTargeting = Math.random() < 0.7;
+
+    if (useSmartTargeting) {
+      // Priority 1: Cannons (50% chance if available)
+      if (cannonTargets.length > 0 && Math.random() < 0.5) {
+        const target = this.getClosestTarget(ship.position, cannonTargets);
+        return { position: target, type: "cannon" };
+      }
+
+      // Priority 2: Walls (40% chance if available)
+      if (wallTargets.length > 0 && Math.random() < 0.4) {
+        const target = this.getClosestTarget(ship.position, wallTargets);
+        return { position: target, type: "wall" };
+      }
+
+      // Priority 3: Castles (30% chance if available)
+      if (castleTargets.length > 0 && Math.random() < 0.3) {
+        const target = this.getClosestTarget(ship.position, castleTargets);
+        return { position: target, type: "castle" };
+      }
+    }
+
+    // Fallback: Random land tile
+    if (landTargets.length > 0) {
+      const target = landTargets[Math.floor(Math.random() * landTargets.length)];
+      return { position: target, type: "land" };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the closest target from a list of positions
+   */
+  private getClosestTarget(shipPos: Position, targets: Position[]): Position {
+    let closest = targets[0];
+    let minDist = Number.MAX_VALUE;
+
+    for (const target of targets) {
+      const dx = target.x - shipPos.x;
+      const dy = target.y - shipPos.y;
+      const dist = dx * dx + dy * dy; // Skip sqrt for comparison
+      if (dist < minDist) {
+        minDist = dist;
+        closest = target;
+      }
+    }
+
+    return closest;
   }
 
   /**

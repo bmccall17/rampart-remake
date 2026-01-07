@@ -192,12 +192,11 @@ export class BuildPhaseSystem {
       if (!gridTile) continue;
 
       // Check if this tile would be invalid for placement
+      // Note: DEBRIS and CRATER can be repaired (placed over) so they're valid
       if (
         gridTile.type === TileType.WATER ||
         gridTile.type === TileType.WALL ||
-        gridTile.type === TileType.CASTLE ||
-        gridTile.type === TileType.DEBRIS ||
-        gridTile.type === TileType.CRATER
+        gridTile.type === TileType.CASTLE
       ) {
         invalidTiles.push(tile);
       }
@@ -335,20 +334,8 @@ export class BuildPhaseSystem {
           details: { tile, tileType: "CASTLE" },
         };
       }
-      if (gridTile.type === TileType.DEBRIS) {
-        return {
-          isValid: false,
-          reason: "Cannot place on debris",
-          details: { tile, tileType: "DEBRIS" },
-        };
-      }
-      if (gridTile.type === TileType.CRATER) {
-        return {
-          isValid: false,
-          reason: "Cannot place on crater",
-          details: { tile, tileType: "CRATER" },
-        };
-      }
+      // Note: DEBRIS and CRATER tiles CAN be repaired by placing walls on them
+      // This is the wall repair mechanic - craters from enemy fire can be filled
     }
 
     return { isValid: true };
