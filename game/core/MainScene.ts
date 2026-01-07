@@ -771,6 +771,10 @@ export class MainScene extends Phaser.Scene {
     // Only render during COMBAT phase
     if (currentPhase !== GamePhase.COMBAT) return;
 
+    // Re-render map tiles to show wall damage (craters) in real-time
+    this.tileRenderer.clear();
+    this.renderMap();
+
     // Render ships
     const ships = this.combatSystem.getShips();
     this.shipRenderer.renderShips(ships, this.mapOffsetX, this.mapOffsetY);
