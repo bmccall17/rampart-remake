@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { TileType } from "../types";
+import { TileType, Position } from "../types";
 import { TILE_SIZE } from "../core/GameConfig";
 
 // Color scheme for different tile types
@@ -26,15 +26,22 @@ export const TILE_BORDER_COLORS = {
   [TileType.CANNON]: 0x1a1a1a,
 };
 
+// Territory colors
+export const TERRITORY_COLOR = 0x00ff00;        // Bright green for enclosed territory
+export const TERRITORY_BORDER_COLOR = 0xffff00; // Yellow for territory border
+
 export class TileRenderer {
   private scene: Phaser.Scene;
   private graphics: Phaser.GameObjects.Graphics;
+  private territoryGraphics: Phaser.GameObjects.Graphics;
   private tileSize: number;
 
   constructor(scene: Phaser.Scene, tileSize: number = TILE_SIZE) {
     this.scene = scene;
     this.tileSize = tileSize;
     this.graphics = scene.add.graphics();
+    this.territoryGraphics = scene.add.graphics();
+    this.territoryGraphics.setDepth(5); // Above tiles but below UI
   }
 
   /**
@@ -198,9 +205,116 @@ export class TileRenderer {
   }
 
   /**
+   * Clear territory overlay
+   */
+  clearTerritory(): void {
+    this.territoryGraphics.clear();
+  }
+
+  /**
+   * Render enclosed territory with green overlay and border
+   * @param territoryTiles - All tiles inside the enclosed territory
+   * @param wallTiles - The wall tiles that form the enclosure
+   * @param offsetX - X offset for rendering
+   * @param offsetY - Y offset for rendering
+   */
+  renderTerritory(
+    territoryTiles: Position[],
+    wallTiles: Position[],
+    offsetX: number,
+    offsetY: number
+  ): void {
+    // Create sets for quick lookup
+    const territorySet = new Set(territoryTiles.map(t => `${t.x},${t.y}`));
+    const wallSet = new Set(wallTiles.map(t => `${t.x},${t.y}`));
+
+    // Draw green overlay on territory tiles
+    this.territoryGraphics.fillStyle(TERRITORY_COLOR, 0.3);
+    for (const tile of territoryTiles) {
+      const x = offsetX + tile.x * this.tileSize;
+      const y = offsetY + tile.y * this.tileSize;
+      this.territoryGraphics.fillRect(x, y, this.tileSize, this.tileSize);
+    }
+
+    // Draw border around the enclosing walls
+    // For each wall tile, check if it's adjacent to territory and draw border on that edge
+    this.territoryGraphics.lineStyle(3, TERRITORY_BORDER_COLOR, 1);
+
+    for (const wall of wallTiles) {
+      const x = offsetX + wall.x * this.tileSize;
+      const y = offsetY + wall.y * this.tileSize;
+
+      // Check each direction - draw border on edges adjacent to territory
+      const neighbors = [
+        { dx: 0, dy: -1, edge: 'top' },    // Above
+        { dx: 0, dy: 1, edge: 'bottom' },  // Below
+        { dx: -1, dy: 0, edge: 'left' },   // Left
+        { dx: 1, dy: 0, edge: 'right' },   // Right
+      ];
+
+      for (const { dx, dy, edge } of neighbors) {
+        const neighborKey = `${wall.x + dx},${wall.y + dy}`;
+        // Draw border if neighbor is territory (not wall)
+        if (territorySet.has(neighborKey) && !wallSet.has(neighborKey)) {
+          switch (edge) {
+            case 'top':
+              this.territoryGraphics.lineBetween(x, y, x + this.tileSize, y);
+              break;
+            case 'bottom':
+              this.territoryGraphics.lineBetween(x, y + this.tileSize, x + this.tileSize, y + this.tileSize);
+              break;
+            case 'left':
+              this.territoryGraphics.lineBetween(x, y, x, y + this.tileSize);
+              break;
+            case 'right':
+              this.territoryGraphics.lineBetween(x + this.tileSize, y, x + this.tileSize, y + this.tileSize);
+              break;
+          }
+        }
+      }
+    }
+
+    // Also draw outer border of walls (edges not adjacent to territory)
+    this.territoryGraphics.lineStyle(2, 0xffd700, 0.8); // Gold color for outer edge
+    for (const wall of wallTiles) {
+      const x = offsetX + wall.x * this.tileSize;
+      const y = offsetY + wall.y * this.tileSize;
+
+      const neighbors = [
+        { dx: 0, dy: -1, edge: 'top' },
+        { dx: 0, dy: 1, edge: 'bottom' },
+        { dx: -1, dy: 0, edge: 'left' },
+        { dx: 1, dy: 0, edge: 'right' },
+      ];
+
+      for (const { dx, dy, edge } of neighbors) {
+        const neighborKey = `${wall.x + dx},${wall.y + dy}`;
+        // Draw outer border if neighbor is NOT a wall and NOT territory
+        if (!wallSet.has(neighborKey) && !territorySet.has(neighborKey)) {
+          switch (edge) {
+            case 'top':
+              this.territoryGraphics.lineBetween(x, y, x + this.tileSize, y);
+              break;
+            case 'bottom':
+              this.territoryGraphics.lineBetween(x, y + this.tileSize, x + this.tileSize, y + this.tileSize);
+              break;
+            case 'left':
+              this.territoryGraphics.lineBetween(x, y, x, y + this.tileSize);
+              break;
+            case 'right':
+              this.territoryGraphics.lineBetween(x + this.tileSize, y, x + this.tileSize, y + this.tileSize);
+              break;
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Destroy the renderer
    */
   destroy(): void {
     this.graphics.destroy();
+    this.territoryGraphics.destroy();
   }
 }

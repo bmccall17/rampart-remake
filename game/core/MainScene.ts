@@ -49,6 +49,8 @@ export class MainScene extends Phaser.Scene {
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyR!: Phaser.Input.Keyboard.Key;
   private enclosedCastles: Castle[] = [];
+  private territoryTiles: { x: number; y: number }[] = [];
+  private enclosingWalls: { x: number; y: number }[] = [];
   private lastClickTime: number = 0;
   private lastLoggedPhase: GamePhase | null = null;
   private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
@@ -350,6 +352,8 @@ export class MainScene extends Phaser.Scene {
     switch (newPhase) {
       case GamePhase.BUILD:
         logger.info("Entering BUILD phase - Wall placement enabled");
+        // Clear any previous territory visualization
+        this.tileRenderer.clearTerritory();
         this.buildSystem.startBuildPhase();
         const piece = this.buildSystem.getCurrentPiece();
         if (piece) {
@@ -364,9 +368,21 @@ export class MainScene extends Phaser.Scene {
         const territoryResult = this.buildSystem.validateTerritories(this.castles);
         if (territoryResult.hasValidTerritory) {
           this.enclosedCastles = territoryResult.enclosedCastles;
-          logger.info(`Territory validation: ${territoryResult.enclosedCastles.length} castles enclosed`);
+          this.territoryTiles = territoryResult.territoryTiles;
+          this.enclosingWalls = territoryResult.enclosingWalls;
+          logger.info(`Territory validation: ${territoryResult.enclosedCastles.length} castles enclosed, ${territoryResult.territoryTiles.length} tiles, ${territoryResult.enclosingWalls.length} walls`);
+
+          // Render the enclosed territory with green overlay and border
+          this.tileRenderer.renderTerritory(
+            this.territoryTiles,
+            this.enclosingWalls,
+            this.mapOffsetX,
+            this.mapOffsetY
+          );
         } else {
           this.enclosedCastles = [];
+          this.territoryTiles = [];
+          this.enclosingWalls = [];
           logger.warn("No castles enclosed - player will have 0 cannons!");
         }
         this.deploySystem.startDeployPhase(this.enclosedCastles);

@@ -408,15 +408,40 @@ export class BuildPhaseSystem {
   validateTerritories(castles: Castle[]): {
     hasValidTerritory: boolean;
     enclosedCastles: Castle[];
+    territoryTiles: Position[];
+    enclosingWalls: Position[];
   } {
     logger.info("Validating territories");
 
     const enclosedCastles: Castle[] = [];
+    const allTerritoryTiles: Position[] = [];
+    const allEnclosingWalls: Position[] = [];
+    const seenTerritoryKeys = new Set<string>();
+    const seenWallKeys = new Set<string>();
 
     for (const castle of castles) {
-      if (this.isCastleEnclosed(castle)) {
+      const result = this.getEnclosedTerritoryInfo(castle);
+      if (result.isEnclosed) {
         enclosedCastles.push(castle);
         castle.enclosed = true;
+
+        // Add territory tiles (deduplicated)
+        for (const tile of result.territoryTiles) {
+          const key = `${tile.x},${tile.y}`;
+          if (!seenTerritoryKeys.has(key)) {
+            seenTerritoryKeys.add(key);
+            allTerritoryTiles.push(tile);
+          }
+        }
+
+        // Add enclosing wall tiles (deduplicated)
+        for (const wall of result.enclosingWalls) {
+          const key = `${wall.x},${wall.y}`;
+          if (!seenWallKeys.has(key)) {
+            seenWallKeys.add(key);
+            allEnclosingWalls.push(wall);
+          }
+        }
       } else {
         castle.enclosed = false;
       }
@@ -427,13 +452,82 @@ export class BuildPhaseSystem {
     logger.event("TerritoryValidated", {
       totalCastles: castles.length,
       enclosedCastles: enclosedCastles.length,
+      territoryTiles: allTerritoryTiles.length,
+      enclosingWalls: allEnclosingWalls.length,
       valid: hasValidTerritory,
     });
 
     return {
       hasValidTerritory,
       enclosedCastles,
+      territoryTiles: allTerritoryTiles,
+      enclosingWalls: allEnclosingWalls,
     };
+  }
+
+  /**
+   * Get detailed info about an enclosed territory around a castle
+   */
+  private getEnclosedTerritoryInfo(castle: Castle): {
+    isEnclosed: boolean;
+    territoryTiles: Position[];
+    enclosingWalls: Position[];
+  } {
+    const visited = new Set<string>();
+    const queue: Position[] = [castle.position];
+    const width = this.grid.getWidth();
+    const height = this.grid.getHeight();
+    const territoryTiles: Position[] = [];
+    const enclosingWalls: Position[] = [];
+    const wallsFound = new Set<string>();
+
+    while (queue.length > 0) {
+      const pos = queue.shift()!;
+      const key = `${pos.x},${pos.y}`;
+
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      // If we reached the edge, castle is NOT enclosed
+      if (pos.x <= 0 || pos.x >= width - 1 || pos.y <= 0 || pos.y >= height - 1) {
+        return { isEnclosed: false, territoryTiles: [], enclosingWalls: [] };
+      }
+
+      // This tile is part of the territory
+      territoryTiles.push({ x: pos.x, y: pos.y });
+
+      // Check all 4 directions
+      const neighbors = [
+        { x: pos.x + 1, y: pos.y },
+        { x: pos.x - 1, y: pos.y },
+        { x: pos.x, y: pos.y + 1 },
+        { x: pos.x, y: pos.y - 1 },
+      ];
+
+      for (const neighbor of neighbors) {
+        const tile = this.grid.getTile(neighbor.x, neighbor.y);
+        if (!tile) continue;
+
+        // Walls block the flood fill - track them as enclosing walls
+        if (tile.type === TileType.WALL) {
+          const wallKey = `${neighbor.x},${neighbor.y}`;
+          if (!wallsFound.has(wallKey)) {
+            wallsFound.add(wallKey);
+            enclosingWalls.push({ x: neighbor.x, y: neighbor.y });
+          }
+          continue;
+        }
+
+        // Add to queue if not visited
+        const neighborKey = `${neighbor.x},${neighbor.y}`;
+        if (!visited.has(neighborKey)) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    // If we didn't reach the edge, castle is enclosed
+    return { isEnclosed: true, territoryTiles, enclosingWalls };
   }
 
   /**
