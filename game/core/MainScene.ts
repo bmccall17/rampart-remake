@@ -121,7 +121,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 55,
-      "BUILD: Arrows/WASD/R/Space or LClick move/RClick place | DEPLOY: Click | COMBAT: Click | ESC: Restart",
+      "BUILD: Mouse move + LClick place + RClick rotate | DEPLOY: Click | COMBAT: Click | ESC: Restart",
       {
         fontSize: "12px",
         color: "#888888",
@@ -264,6 +264,21 @@ export class MainScene extends Phaser.Scene {
       handleInput(event.code);
     });
 
+    // Prevent browser context menu on right-click
+    this.input.mouse!.disableContextMenu();
+
+    // Setup mouse movement tracking for BUILD phase
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      const currentPhase = this.phaseManager.getCurrentPhase();
+      if (currentPhase !== GamePhase.BUILD) return;
+
+      const gridX = Math.floor((pointer.x - this.mapOffsetX) / TILE_SIZE);
+      const gridY = Math.floor((pointer.y - this.mapOffsetY) / TILE_SIZE);
+
+      // Move piece to follow mouse cursor
+      this.buildSystem.setPosition(gridX, gridY);
+    });
+
     // Setup mouse controls with event listeners
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       const currentPhase = this.phaseManager.getCurrentPhase();
@@ -291,26 +306,21 @@ export class MainScene extends Phaser.Scene {
 
       if (currentPhase === GamePhase.BUILD) {
         if (pointer.leftButtonDown()) {
-          // Move piece to clicked position
-          const moved = this.buildSystem.setPosition(gridX, gridY);
-          if (moved) {
-            sceneLogger.info("Piece moved to click position", { gridX, gridY });
-            this.lastLogicAction = `Mouse Move (${gridX},${gridY})`;
-          } else {
-            sceneLogger.info("Could not move piece to click position", { gridX, gridY });
-            this.lastLogicAction = "Mouse Move Failed";
-          }
-        } else if (pointer.rightButtonDown()) {
-          // Right-click to place piece
-          sceneLogger.info("Right-click - placing piece");
+          // Left-click to place piece
+          sceneLogger.info("Left-click - placing piece");
           if (this.buildSystem.placePiece()) {
-            sceneLogger.info("Piece placed successfully via right-click");
+            sceneLogger.info("Piece placed successfully via left-click");
             this.tileRenderer.clear();
             this.renderMap();
             this.lastLogicAction = "Placed (Mouse)";
           } else {
             this.lastLogicAction = "Place Failed (Mouse)";
           }
+        } else if (pointer.rightButtonDown()) {
+          // Right-click to rotate piece
+          sceneLogger.info("Right-click - rotating piece");
+          this.buildSystem.rotatePiece(true);
+          this.lastLogicAction = "Rotate (Mouse)";
         }
       } else if (currentPhase === GamePhase.DEPLOY) {
         if (pointer.leftButtonDown()) {
@@ -350,6 +360,15 @@ export class MainScene extends Phaser.Scene {
         break;
       case GamePhase.DEPLOY:
         logger.info("Entering DEPLOY phase - Cannon placement enabled");
+        // Validate territories before starting deploy phase to calculate cannon allocation
+        const territoryResult = this.buildSystem.validateTerritories(this.castles);
+        if (territoryResult.hasValidTerritory) {
+          this.enclosedCastles = territoryResult.enclosedCastles;
+          logger.info(`Territory validation: ${territoryResult.enclosedCastles.length} castles enclosed`);
+        } else {
+          this.enclosedCastles = [];
+          logger.warn("No castles enclosed - player will have 0 cannons!");
+        }
         this.deploySystem.startDeployPhase(this.enclosedCastles);
         break;
       case GamePhase.COMBAT:
