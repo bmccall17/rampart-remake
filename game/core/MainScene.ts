@@ -121,7 +121,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 55,
-      "BUILD: Arrows/R/Space | DEPLOY: Click cannons | COMBAT: Click fire | ESC: Restart",
+      "BUILD: Arrows/WASD/R/Space or LClick move/RClick place | DEPLOY: Click | COMBAT: Click | ESC: Restart",
       {
         fontSize: "12px",
         color: "#888888",
@@ -252,23 +252,9 @@ export class MainScene extends Phaser.Scene {
       }
     };
 
-    // 1. Phaser Keyboard Listener
+    // Phaser Keyboard Listener (single handler to avoid duplicate processing)
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
       handleInput(event.code);
-    });
-
-    // 2. Global Window Fallback (prevents focus loss issues)
-    // We attach this at the window level to ensure we catch everything
-    const globalKeyHandler = (event: KeyboardEvent) => {
-      // FORCE global handler to always fire for debugging purposes
-      // Pass 'GLOBAL' as source to distinguish in logs
-      handleInput(event.code, "GLOBAL");
-    };
-
-    // Store reference to remove later if needed
-    window.addEventListener("keydown", globalKeyHandler);
-    this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
-      window.removeEventListener("keydown", globalKeyHandler);
     });
 
     // Setup mouse controls with event listeners
@@ -296,7 +282,30 @@ export class MainScene extends Phaser.Scene {
         button: pointer.leftButtonDown() ? "LEFT" : pointer.rightButtonDown() ? "RIGHT" : "OTHER",
       });
 
-      if (currentPhase === GamePhase.DEPLOY) {
+      if (currentPhase === GamePhase.BUILD) {
+        if (pointer.leftButtonDown()) {
+          // Move piece to clicked position
+          const moved = this.buildSystem.setPosition(gridX, gridY);
+          if (moved) {
+            sceneLogger.info("Piece moved to click position", { gridX, gridY });
+            this.lastLogicAction = `Mouse Move (${gridX},${gridY})`;
+          } else {
+            sceneLogger.info("Could not move piece to click position", { gridX, gridY });
+            this.lastLogicAction = "Mouse Move Failed";
+          }
+        } else if (pointer.rightButtonDown()) {
+          // Right-click to place piece
+          sceneLogger.info("Right-click - placing piece");
+          if (this.buildSystem.placePiece()) {
+            sceneLogger.info("Piece placed successfully via right-click");
+            this.tileRenderer.clear();
+            this.renderMap();
+            this.lastLogicAction = "Placed (Mouse)";
+          } else {
+            this.lastLogicAction = "Place Failed (Mouse)";
+          }
+        }
+      } else if (currentPhase === GamePhase.DEPLOY) {
         if (pointer.leftButtonDown()) {
           // Place cannon
           this.deploySystem.placeCannon({ x: gridX, y: gridY });
@@ -544,10 +553,8 @@ export class MainScene extends Phaser.Scene {
     const timeRemaining = this.phaseManager.getTimeRemainingFormatted(time);
     const progress = this.phaseManager.getPhaseProgress(time);
 
-    // Handle phase-specific input
-    if (currentPhase === GamePhase.BUILD) {
-      this.handleBuildPhaseInput();
-    } else if (currentPhase === GamePhase.DEPLOY) {
+    // Handle phase-specific updates
+    if (currentPhase === GamePhase.DEPLOY) {
       this.handleDeployPhaseInput();
     } else if (currentPhase === GamePhase.COMBAT) {
       this.combatSystem.update(delta);
@@ -580,61 +587,6 @@ export class MainScene extends Phaser.Scene {
       },
       progress
     );
-  }
-
-  private handleBuildPhaseInput(): void {
-    const currentPiece = this.buildSystem.getCurrentPiece();
-    if (!currentPiece) {
-      return; // No piece available, skip input handling
-    }
-
-    // Move left
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.left!)) {
-      logger.info("Left arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(-1, 0);
-      logger.info(`Piece moved left: ${moved}`);
-    }
-
-    // Move right
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.right!)) {
-      logger.info("Right arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(1, 0);
-      logger.info(`Piece moved right: ${moved}`);
-    }
-
-    // Move up
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up!)) {
-      logger.info("Up arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, -1);
-      logger.info(`Piece moved up: ${moved}`);
-    }
-
-    // Move down
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
-      logger.info("Down arrow pressed - moving piece");
-      const moved = this.buildSystem.movePiece(0, 1);
-      logger.info(`Piece moved down: ${moved}`);
-    }
-
-    // Rotate
-    if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-      logger.info("R key pressed - rotating piece");
-      const rotated = this.buildSystem.rotatePiece(true);
-      logger.info(`Piece rotated: ${rotated}`);
-    }
-
-    // Place piece
-    if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
-      logger.info("Space pressed - placing piece");
-      if (this.buildSystem.placePiece()) {
-        logger.info("Piece placed successfully");
-        // Re-render map to show placed walls
-        this.tileRenderer.clear();
-        this.renderMap();
-      } else {
-        logger.warn("Failed to place piece");
-      }
-    }
   }
 
   private handleDeployPhaseInput(): void {

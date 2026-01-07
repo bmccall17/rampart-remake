@@ -73,6 +73,45 @@ export class BuildPhaseSystem {
   }
 
   /**
+   * Set piece position directly (for mouse click-to-move)
+   */
+  setPosition(x: number, y: number): boolean {
+    if (!this.currentPiece) {
+      logger.warn("SetPosition failed: No current piece available");
+      return false;
+    }
+
+    const oldPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+    const dx = x - oldPos.x;
+    const dy = y - oldPos.y;
+
+    // Move to the target position
+    this.currentPiece.move(dx, dy);
+    const newPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
+
+    // Check if valid
+    const validationResult = this.getValidationFailureReason(this.currentPiece);
+    if (validationResult.isValid) {
+      logger.info("Piece position set successfully", {
+        piece: this.currentPiece.name,
+        from: oldPos,
+        to: newPos,
+      });
+      return true;
+    } else {
+      // Revert move
+      this.currentPiece.move(-dx, -dy);
+      logger.warn("SetPosition blocked", {
+        piece: this.currentPiece.name,
+        attemptedPosition: newPos,
+        reason: validationResult.reason,
+        details: validationResult.details,
+      });
+      return false;
+    }
+  }
+
+  /**
    * Move current piece
    */
   movePiece(dx: number, dy: number): boolean {
