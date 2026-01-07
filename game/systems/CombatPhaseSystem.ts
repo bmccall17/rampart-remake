@@ -221,14 +221,15 @@ export class CombatPhaseSystem {
     if (landTiles.length === 0) return;
 
     const target = landTiles[Math.floor(Math.random() * landTiles.length)];
-    const dx = target.x - ship.position.x;
-    const dy = target.y - ship.position.y;
+    const startPos = { ...ship.position };
+    const dx = target.x - startPos.x;
+    const dy = target.y - startPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const speed = 5; // tiles per second
 
     const projectile: Projectile = {
       id: `proj_enemy_${Date.now()}_${Math.random()}`,
-      position: { ...ship.position },
+      position: { ...startPos },
       velocity: {
         x: (dx / distance) * speed,
         y: (dy / distance) * speed,
@@ -237,6 +238,9 @@ export class CombatPhaseSystem {
       sourceId: ship.id,
       damage: 1,
       isActive: true,
+      startPosition: startPos,
+      targetPosition: { ...target },
+      progress: 0,
     };
 
     this.projectiles.push(projectile);
@@ -253,6 +257,17 @@ export class CombatPhaseSystem {
       // Move projectile
       projectile.position.x += projectile.velocity.x * deltaSeconds;
       projectile.position.y += projectile.velocity.y * deltaSeconds;
+
+      // Calculate arc progress (0 to 1)
+      const totalDx = projectile.targetPosition.x - projectile.startPosition.x;
+      const totalDy = projectile.targetPosition.y - projectile.startPosition.y;
+      const totalDistance = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
+
+      const traveledDx = projectile.position.x - projectile.startPosition.x;
+      const traveledDy = projectile.position.y - projectile.startPosition.y;
+      const traveledDistance = Math.sqrt(traveledDx * traveledDx + traveledDy * traveledDy);
+
+      projectile.progress = Math.min(1, traveledDistance / totalDistance);
 
       // Check if out of bounds
       const gridX = Math.floor(projectile.position.x);
@@ -303,13 +318,46 @@ export class CombatPhaseSystem {
           }
         }
       } else {
-        // Enemy projectile hits land/walls
-        const tile = this.grid.getTile(gridX, gridY);
-        if (tile && (tile.type === TileType.LAND || tile.type === TileType.WALL)) {
-          // Create crater
-          this.grid.setTile(gridX, gridY, TileType.CRATER);
-          projectile.isActive = false;
-          logger.event("CraterCreated", { position: { x: gridX, y: gridY } });
+        // Enemy projectile - first check if it hits a cannon
+        let hitCannon = false;
+        for (let i = this.cannons.length - 1; i >= 0; i--) {
+          const cannon = this.cannons[i];
+          const cannonGridX = Math.floor(cannon.position.x);
+          const cannonGridY = Math.floor(cannon.position.y);
+
+          if (cannonGridX === gridX && cannonGridY === gridY) {
+            cannon.health -= projectile.damage;
+            projectile.isActive = false;
+            hitCannon = true;
+
+            logger.event("CannonHit", {
+              cannonId: cannon.id,
+              remainingHealth: cannon.health,
+              position: cannon.position,
+            });
+
+            if (cannon.health <= 0) {
+              // Destroy cannon - remove from array and create debris
+              this.cannons.splice(i, 1);
+              this.grid.setTile(gridX, gridY, TileType.DEBRIS);
+              logger.event("CannonDestroyed", {
+                cannonId: cannon.id,
+                position: cannon.position,
+              });
+            }
+            break;
+          }
+        }
+
+        // If didn't hit a cannon, check for land/walls
+        if (!hitCannon) {
+          const tile = this.grid.getTile(gridX, gridY);
+          if (tile && (tile.type === TileType.LAND || tile.type === TileType.WALL)) {
+            // Create crater
+            this.grid.setTile(gridX, gridY, TileType.CRATER);
+            projectile.isActive = false;
+            logger.event("CraterCreated", { position: { x: gridX, y: gridY } });
+          }
         }
       }
     }
@@ -336,14 +384,15 @@ export class CombatPhaseSystem {
       return false;
     }
 
-    const dx = targetPos.x - cannon.position.x;
-    const dy = targetPos.y - cannon.position.y;
+    const startPos = { ...cannon.position };
+    const dx = targetPos.x - startPos.x;
+    const dy = targetPos.y - startPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const speed = 8; // tiles per second
 
     const projectile: Projectile = {
       id: `proj_player_${Date.now()}_${Math.random()}`,
-      position: { ...cannon.position },
+      position: { ...startPos },
       velocity: {
         x: (dx / distance) * speed,
         y: (dy / distance) * speed,
@@ -352,6 +401,9 @@ export class CombatPhaseSystem {
       sourceId: cannonId,
       damage: 1,
       isActive: true,
+      startPosition: startPos,
+      targetPosition: { ...targetPos },
+      progress: 0,
     };
 
     this.projectiles.push(projectile);

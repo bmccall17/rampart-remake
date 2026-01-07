@@ -29,7 +29,7 @@ export class ProjectileRenderer {
   }
 
   /**
-   * Render a single projectile
+   * Render a single projectile with 3D arc effect
    */
   renderProjectile(
     projectile: Projectile,
@@ -41,22 +41,38 @@ export class ProjectileRenderer {
     const centerX = x + this.tileSize / 2;
     const centerY = y + this.tileSize / 2;
 
+    // Calculate arc scale: peaks at 0.5 (apex), smaller at 0 and 1
+    // Use sine curve for smooth arc: sin(progress * PI) gives 0->1->0
+    const arcHeight = Math.sin(projectile.progress * Math.PI);
+    const baseRadius = 3;
+    const maxRadius = 7;
+    const radius = baseRadius + (maxRadius - baseRadius) * arcHeight;
+
+    // Y offset for arc (ball goes "up" then "down")
+    const arcYOffset = -arcHeight * 12; // Negative because up is negative Y
+
     // Different colors for player vs enemy projectiles
     const color = projectile.source === "player" ? 0xffaa00 : 0xff0000;
 
-    // Draw cannonball (filled circle)
+    // Draw shadow on ground (gets smaller/fainter as ball rises)
+    const shadowAlpha = 0.3 * (1 - arcHeight * 0.5);
+    const shadowRadius = radius * 0.8;
+    this.graphics.fillStyle(0x000000, shadowAlpha);
+    this.graphics.fillCircle(centerX, centerY + 2, shadowRadius);
+
+    // Draw cannonball (filled circle) with arc offset
     this.graphics.fillStyle(color, 1);
-    this.graphics.fillCircle(centerX, centerY, 4);
+    this.graphics.fillCircle(centerX, centerY + arcYOffset, radius);
 
-    // Add glow effect
+    // Add glow effect (scales with ball)
     this.graphics.lineStyle(2, color, 0.5);
-    this.graphics.strokeCircle(centerX, centerY, 6);
+    this.graphics.strokeCircle(centerX, centerY + arcYOffset, radius + 2);
 
-    // Trail effect (small circles behind)
-    const trailX = centerX - projectile.velocity.x * 0.5;
-    const trailY = centerY - projectile.velocity.y * 0.5;
+    // Trail effect (small circles behind, follow arc)
+    const trailX = centerX - projectile.velocity.x * 0.3;
+    const trailY = centerY + arcYOffset - projectile.velocity.y * 0.3;
     this.graphics.fillStyle(color, 0.3);
-    this.graphics.fillCircle(trailX, trailY, 3);
+    this.graphics.fillCircle(trailX, trailY, radius * 0.6);
   }
 
   /**

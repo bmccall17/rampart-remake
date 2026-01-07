@@ -186,6 +186,8 @@ export class DeployPhaseSystem {
       id: `cannon_${Date.now()}_${Math.random()}`,
       position: { ...pos },
       angle: 0,
+      health: 3,
+      maxHealth: 3,
     };
 
     this.cannons.push(cannon);

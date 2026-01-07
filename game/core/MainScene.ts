@@ -54,6 +54,10 @@ export class MainScene extends Phaser.Scene {
   private debugPieceIndicator: Phaser.GameObjects.Text | null = null;
   private frameCount: number = 0;
   private lastLogicAction: string = "None";
+  // Crosshair and target marker system
+  private crosshairGraphics!: Phaser.GameObjects.Graphics;
+  private targetMarkers: Map<string, { x: number; y: number }> = new Map(); // projectileId -> target position
+  private isMouseDown: boolean = false;
 
   constructor() {
     super({ key: "MainScene" });
@@ -87,6 +91,10 @@ export class MainScene extends Phaser.Scene {
     this.combatSystem = new CombatPhaseSystem(this.grid);
     this.shipRenderer = new ShipRenderer(this, TILE_SIZE);
     this.projectileRenderer = new ProjectileRenderer(this, TILE_SIZE);
+
+    // Initialize crosshair graphics (for COMBAT phase)
+    this.crosshairGraphics = this.add.graphics();
+    this.crosshairGraphics.setDepth(1000); // Always on top
 
     // Initialize game state manager
     this.gameStateManager = new GameStateManager();
@@ -329,7 +337,11 @@ export class MainScene extends Phaser.Scene {
       } else if (currentPhase === GamePhase.COMBAT) {
         if (pointer.leftButtonDown()) {
           // Fire closest available cannon at click position
-          this.fireClosestAvailableCannon({ x: gridX, y: gridY });
+          const firedProjectileId = this.fireClosestAvailableCannon({ x: gridX, y: gridY });
+          if (firedProjectileId) {
+            // Store target position for marker
+            this.targetMarkers.set(firedProjectileId, { x: gridX, y: gridY });
+          }
         }
       } else {
         sceneLogger.info("Mouse click ignored - wrong phase for mouse input", {
@@ -339,6 +351,14 @@ export class MainScene extends Phaser.Scene {
       }
     });
 
+    // Track mouse down state for crosshair animation
+    this.input.on("pointerdown", () => {
+      this.isMouseDown = true;
+    });
+    this.input.on("pointerup", () => {
+      this.isMouseDown = false;
+    });
+
     sceneLogger.info("Controls initialized");
   }
 
@@ -346,6 +366,8 @@ export class MainScene extends Phaser.Scene {
     switch (newPhase) {
       case GamePhase.BUILD:
         logger.info("Entering BUILD phase - Wall placement enabled");
+        // Restore default cursor
+        this.input.setDefaultCursor("default");
         // Clear any previous territory visualization
         this.tileRenderer.clearTerritory();
         this.buildSystem.startBuildPhase();
@@ -387,6 +409,10 @@ export class MainScene extends Phaser.Scene {
         this.cannons = this.deploySystem.finalizeDeployment();
         // Start combat phase
         this.combatSystem.startCombatPhase(this.cannons);
+        // Hide default cursor for custom crosshair
+        this.input.setDefaultCursor("none");
+        // Clear target markers from previous combat
+        this.targetMarkers.clear();
         break;
       case GamePhase.SCORING:
         logger.info("Entering SCORING phase - Validating territories");
@@ -607,6 +633,9 @@ export class MainScene extends Phaser.Scene {
     this.renderCannons();
     this.renderCombat();
 
+    // Draw crosshair and target markers during COMBAT
+    this.drawCrosshair();
+
     // Update HUD with current game stats
     const currentCannonCount = this.deploySystem.getCannons().length;
     const stats = this.gameStateManager.getStats();
@@ -755,13 +784,13 @@ export class MainScene extends Phaser.Scene {
     );
   }
 
-  private fireClosestAvailableCannon(targetPos: { x: number; y: number }): void {
+  private fireClosestAvailableCannon(targetPos: { x: number; y: number }): string | null {
     if (this.cannons.length === 0) {
       logger.warn("Fire attempt failed: No cannons available", {
         targetPos,
         currentPhase: this.phaseManager.getCurrentPhase(),
       });
-      return;
+      return null;
     }
 
     // Sort cannons by distance to target (closest first)
@@ -780,14 +809,20 @@ export class MainScene extends Phaser.Scene {
     // Try to fire cannons in order of distance (closest first)
     // Skip any that already have a projectile in flight
     for (const cannon of sortedCannons) {
+      const projectilesBefore = this.combatSystem.getProjectiles().length;
       const fired = this.combatSystem.fireCannon(cannon.id, targetPos);
       if (fired) {
+        // Get the newly created projectile ID
+        const projectiles = this.combatSystem.getProjectiles();
+        const newProjectile = projectiles[projectiles.length - 1];
+
         logger.info("Fired closest available cannon", {
           cannonId: cannon.id,
           cannonPosition: cannon.position,
           target: targetPos,
+          projectileId: newProjectile?.id,
         });
-        return; // Only fire one cannon per click
+        return newProjectile?.id || null;
       }
     }
 
@@ -795,5 +830,85 @@ export class MainScene extends Phaser.Scene {
       target: targetPos,
       totalCannons: this.cannons.length,
     });
+    return null;
+  }
+
+  /**
+   * Draw crosshair cursor during COMBAT phase
+   */
+  private drawCrosshair(): void {
+    this.crosshairGraphics.clear();
+
+    const currentPhase = this.phaseManager.getCurrentPhase();
+    if (currentPhase !== GamePhase.COMBAT) {
+      return;
+    }
+
+    const pointer = this.input.activePointer;
+    const x = pointer.x;
+    const y = pointer.y;
+
+    // Crosshair size based on mouse state
+    const baseSize = this.isMouseDown ? 8 : 16;
+    const lineWidth = this.isMouseDown ? 3 : 2;
+    const color = 0xff6600;
+    const alpha = this.isMouseDown ? 1.0 : 0.8;
+
+    this.crosshairGraphics.lineStyle(lineWidth, color, alpha);
+
+    // Draw X-shaped crosshair (rotated 45 degrees)
+    // Top-left to bottom-right
+    this.crosshairGraphics.beginPath();
+    this.crosshairGraphics.moveTo(x - baseSize, y - baseSize);
+    this.crosshairGraphics.lineTo(x + baseSize, y + baseSize);
+    this.crosshairGraphics.strokePath();
+
+    // Top-right to bottom-left
+    this.crosshairGraphics.beginPath();
+    this.crosshairGraphics.moveTo(x + baseSize, y - baseSize);
+    this.crosshairGraphics.lineTo(x - baseSize, y + baseSize);
+    this.crosshairGraphics.strokePath();
+
+    // Draw target markers for active projectiles
+    this.drawTargetMarkers();
+  }
+
+  /**
+   * Draw target markers where cannons are aimed
+   */
+  private drawTargetMarkers(): void {
+    const projectiles = this.combatSystem.getProjectiles();
+    const activeProjectileIds = new Set(projectiles.filter(p => p.isActive && p.source === "player").map(p => p.id));
+
+    // Clean up markers for projectiles that no longer exist
+    for (const [projId] of this.targetMarkers) {
+      if (!activeProjectileIds.has(projId)) {
+        this.targetMarkers.delete(projId);
+      }
+    }
+
+    // Draw remaining markers
+    for (const [, target] of this.targetMarkers) {
+      const screenX = this.mapOffsetX + target.x * TILE_SIZE + TILE_SIZE / 2;
+      const screenY = this.mapOffsetY + target.y * TILE_SIZE + TILE_SIZE / 2;
+
+      // Draw faint target marker
+      this.crosshairGraphics.lineStyle(1, 0xff6600, 0.4);
+
+      // Small X marker
+      const markerSize = 6;
+      this.crosshairGraphics.beginPath();
+      this.crosshairGraphics.moveTo(screenX - markerSize, screenY - markerSize);
+      this.crosshairGraphics.lineTo(screenX + markerSize, screenY + markerSize);
+      this.crosshairGraphics.strokePath();
+
+      this.crosshairGraphics.beginPath();
+      this.crosshairGraphics.moveTo(screenX + markerSize, screenY - markerSize);
+      this.crosshairGraphics.lineTo(screenX - markerSize, screenY + markerSize);
+      this.crosshairGraphics.strokePath();
+
+      // Circle around target
+      this.crosshairGraphics.strokeCircle(screenX, screenY, markerSize + 2);
+    }
   }
 }

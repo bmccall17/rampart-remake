@@ -40,6 +40,8 @@ export interface Cannon {
   id: string;
   position: Position;
   angle: number;
+  health: number;
+  maxHealth: number;
 }
 
 export interface Ship {
@@ -62,6 +64,10 @@ export interface Projectile {
   sourceId: string; // ID of the cannon or ship that fired this projectile
   damage: number;
   isActive: boolean;
+  // Arc tracking for 3D lofted effect
+  startPosition: Position;
+  targetPosition: Position;
+  progress: number; // 0 to 1, where 0.5 is apex of arc
 }
 
 export interface GameState {
