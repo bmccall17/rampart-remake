@@ -4,7 +4,8 @@
       "Bash(git ls-tree:*)",
       "Bash(npx create-next-app@latest:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(bd ready:*)"
     ],
     "deny": [],
     "ask": []

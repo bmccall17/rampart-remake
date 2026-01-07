@@ -328,8 +328,8 @@ export class MainScene extends Phaser.Scene {
         }
       } else if (currentPhase === GamePhase.COMBAT) {
         if (pointer.leftButtonDown()) {
-          // Find nearest cannon and fire at click position
-          this.fireNearestCannon({ x: gridX, y: gridY });
+          // Fire closest available cannon at click position
+          this.fireClosestAvailableCannon({ x: gridX, y: gridY });
         }
       } else {
         sceneLogger.info("Mouse click ignored - wrong phase for mouse input", {
@@ -755,7 +755,7 @@ export class MainScene extends Phaser.Scene {
     );
   }
 
-  private fireNearestCannon(targetPos: { x: number; y: number }): void {
+  private fireClosestAvailableCannon(targetPos: { x: number; y: number }): void {
     if (this.cannons.length === 0) {
       logger.warn("Fire attempt failed: No cannons available", {
         targetPos,
@@ -764,29 +764,36 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    // Find nearest cannon to target
-    let nearestCannon = this.cannons[0];
-    let minDistance = Number.MAX_VALUE;
+    // Sort cannons by distance to target (closest first)
+    const sortedCannons = [...this.cannons].sort((a, b) => {
+      const distA = Math.sqrt(
+        Math.pow(targetPos.x - a.position.x, 2) +
+        Math.pow(targetPos.y - a.position.y, 2)
+      );
+      const distB = Math.sqrt(
+        Math.pow(targetPos.x - b.position.x, 2) +
+        Math.pow(targetPos.y - b.position.y, 2)
+      );
+      return distA - distB;
+    });
 
-    for (const cannon of this.cannons) {
-      const dx = targetPos.x - cannon.position.x;
-      const dy = targetPos.y - cannon.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestCannon = cannon;
+    // Try to fire cannons in order of distance (closest first)
+    // Skip any that already have a projectile in flight
+    for (const cannon of sortedCannons) {
+      const fired = this.combatSystem.fireCannon(cannon.id, targetPos);
+      if (fired) {
+        logger.info("Fired closest available cannon", {
+          cannonId: cannon.id,
+          cannonPosition: cannon.position,
+          target: targetPos,
+        });
+        return; // Only fire one cannon per click
       }
     }
 
-    logger.info("Firing nearest cannon", {
-      cannonId: nearestCannon.id,
-      cannonPosition: nearestCannon.position,
+    logger.info("No cannons available to fire (all have projectiles in flight)", {
       target: targetPos,
-      distance: minDistance.toFixed(2),
+      totalCannons: this.cannons.length,
     });
-
-    // Fire cannon at target
-    this.combatSystem.fireCannon(nearestCannon.id, targetPos);
   }
 }

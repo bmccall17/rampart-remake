@@ -3,7 +3,7 @@ import { MainScene } from "./MainScene";
 
 export const GAME_WIDTH = 1024;
 export const GAME_HEIGHT = 768;
-export const TILE_SIZE = 32;
+export const TILE_SIZE = 16;
 
 export const GameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
