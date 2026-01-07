@@ -79,6 +79,7 @@ export class BuildPhaseSystem {
 
   /**
    * Set piece position directly (for mouse click-to-move)
+   * Allows movement over invalid tiles, only blocks at grid bounds
    */
   setPosition(x: number, y: number): boolean {
     if (!this.currentPiece) {
@@ -94,9 +95,9 @@ export class BuildPhaseSystem {
     this.currentPiece.move(dx, dy);
     const newPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
 
-    // Check if valid
-    const validationResult = this.getValidationFailureReason(this.currentPiece);
-    if (validationResult.isValid) {
+    // Only check bounds - allow movement over invalid tiles
+    const boundsCheck = this.checkBounds(this.currentPiece);
+    if (boundsCheck.inBounds) {
       logger.info("Piece position set successfully", {
         piece: this.currentPiece.name,
         from: oldPos,
@@ -104,20 +105,19 @@ export class BuildPhaseSystem {
       });
       return true;
     } else {
-      // Revert move
+      // Revert move - only if out of bounds
       this.currentPiece.move(-dx, -dy);
-      logger.warn("SetPosition blocked", {
+      logger.warn("SetPosition blocked (out of bounds)", {
         piece: this.currentPiece.name,
         attemptedPosition: newPos,
-        reason: validationResult.reason,
-        details: validationResult.details,
+        reason: boundsCheck.reason,
       });
       return false;
     }
   }
 
   /**
-   * Move current piece
+   * Move current piece (allows movement over invalid tiles, only blocks at grid bounds)
    */
   movePiece(dx: number, dy: number): boolean {
     if (!this.currentPiece) {
@@ -131,9 +131,9 @@ export class BuildPhaseSystem {
     this.currentPiece.move(dx, dy);
     const newPos = { x: this.currentPiece.position.x, y: this.currentPiece.position.y };
 
-    // Check if valid
-    const validationResult = this.getValidationFailureReason(this.currentPiece);
-    if (validationResult.isValid) {
+    // Only check bounds - allow movement over invalid tiles
+    const boundsCheck = this.checkBounds(this.currentPiece);
+    if (boundsCheck.inBounds) {
       logger.info("Piece moved successfully", {
         piece: this.currentPiece.name,
         from: oldPos,
@@ -142,21 +142,72 @@ export class BuildPhaseSystem {
       });
       return true;
     } else {
-      // Revert move
+      // Revert move - only if out of bounds
       this.currentPiece.move(-dx, -dy);
-      logger.warn("Move blocked", {
+      logger.warn("Move blocked (out of bounds)", {
         piece: this.currentPiece.name,
         attemptedPosition: newPos,
         direction: { dx, dy },
-        reason: validationResult.reason,
-        details: validationResult.details,
+        reason: boundsCheck.reason,
       });
       return false;
     }
   }
 
   /**
-   * Rotate current piece
+   * Check if piece is within grid bounds (doesn't check tile validity)
+   */
+  private checkBounds(piece: WallPiece): { inBounds: boolean; reason?: string } {
+    const tiles = piece.getOccupiedTiles();
+
+    for (const tile of tiles) {
+      if (tile.x < 0) {
+        return { inBounds: false, reason: "Out of bounds (left edge)" };
+      }
+      if (tile.x >= this.grid.getWidth()) {
+        return { inBounds: false, reason: "Out of bounds (right edge)" };
+      }
+      if (tile.y < 0) {
+        return { inBounds: false, reason: "Out of bounds (top edge)" };
+      }
+      if (tile.y >= this.grid.getHeight()) {
+        return { inBounds: false, reason: "Out of bounds (bottom edge)" };
+      }
+    }
+
+    return { inBounds: true };
+  }
+
+  /**
+   * Get list of invalid tile positions for current piece (for rendering feedback)
+   */
+  getInvalidTiles(): Position[] {
+    if (!this.currentPiece) return [];
+
+    const invalidTiles: Position[] = [];
+    const tiles = this.currentPiece.getOccupiedTiles();
+
+    for (const tile of tiles) {
+      const gridTile = this.grid.getTile(tile.x, tile.y);
+      if (!gridTile) continue;
+
+      // Check if this tile would be invalid for placement
+      if (
+        gridTile.type === TileType.WATER ||
+        gridTile.type === TileType.WALL ||
+        gridTile.type === TileType.CASTLE ||
+        gridTile.type === TileType.DEBRIS ||
+        gridTile.type === TileType.CRATER
+      ) {
+        invalidTiles.push(tile);
+      }
+    }
+
+    return invalidTiles;
+  }
+
+  /**
+   * Rotate current piece (allows rotation over invalid tiles, only blocks at grid bounds)
    */
   rotatePiece(clockwise: boolean = true): boolean {
     if (!this.currentPiece) {
@@ -175,9 +226,9 @@ export class BuildPhaseSystem {
 
     const newRotation = (this.currentPiece as any).currentRotation || 0;
 
-    // Check if valid
-    const validationResult = this.getValidationFailureReason(this.currentPiece);
-    if (validationResult.isValid) {
+    // Only check bounds - allow rotation over invalid tiles
+    const boundsCheck = this.checkBounds(this.currentPiece);
+    if (boundsCheck.inBounds) {
       logger.info("Piece rotated successfully", {
         piece: this.currentPiece.name,
         position: this.currentPiece.position,
@@ -187,19 +238,18 @@ export class BuildPhaseSystem {
       });
       return true;
     } else {
-      // Revert rotation
+      // Revert rotation - only if out of bounds
       if (clockwise) {
         this.currentPiece.rotateCounterClockwise();
       } else {
         this.currentPiece.rotateClockwise();
       }
-      logger.warn("Rotation blocked", {
+      logger.warn("Rotation blocked (out of bounds)", {
         piece: this.currentPiece.name,
         position: this.currentPiece.position,
         attemptedRotation: newRotation,
         clockwise,
-        reason: validationResult.reason,
-        details: validationResult.details,
+        reason: boundsCheck.reason,
       });
       return false;
     }

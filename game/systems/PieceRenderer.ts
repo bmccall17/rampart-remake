@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { WallPiece } from "./WallPiece";
 import { TILE_SIZE } from "../core/GameConfig";
+import { Position } from "../types";
 
 export class PieceRenderer {
   private scene: Phaser.Scene;
@@ -14,25 +15,34 @@ export class PieceRenderer {
   }
 
   /**
-   * Render a wall piece
+   * Render a wall piece with optional invalid tile highlighting
    */
   renderPiece(
     piece: WallPiece,
     offsetX: number,
     offsetY: number,
-    isGhost: boolean = false
+    isGhost: boolean = false,
+    invalidTiles: Position[] = []
   ): void {
     const shape = piece.getShape();
     const pos = piece.position;
 
+    // Create a set of invalid tile keys for quick lookup
+    const invalidSet = new Set(invalidTiles.map(t => `${t.x},${t.y}`));
+
     for (let row = 0; row < shape.length; row++) {
       for (let col = 0; col < shape[row].length; col++) {
         if (shape[row][col] === 1) {
-          const x = offsetX + (pos.x + col) * this.tileSize;
-          const y = offsetY + (pos.y + row) * this.tileSize;
+          const tileX = pos.x + col;
+          const tileY = pos.y + row;
+          const x = offsetX + tileX * this.tileSize;
+          const y = offsetY + tileY * this.tileSize;
+          const isInvalid = invalidSet.has(`${tileX},${tileY}`);
 
           if (isGhost) {
             this.drawGhostTile(x, y);
+          } else if (isInvalid) {
+            this.drawInvalidTile(x, y);
           } else {
             this.drawPieceTile(x, y);
           }
@@ -42,19 +52,34 @@ export class PieceRenderer {
   }
 
   /**
-   * Draw a solid piece tile
+   * Draw a solid piece tile (valid placement)
    */
   private drawPieceTile(x: number, y: number): void {
-    // DEBUG: Make piece VERY visible with bright yellow
-    // Fill - BRIGHT YELLOW
-    this.graphics.fillStyle(0xffff00, 1.0); // Bright yellow
+    // Fill - GREEN for valid placement
+    this.graphics.fillStyle(0x00ff00, 1.0); // Bright green
     this.graphics.fillRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
 
-    // Border - THICK RED
-    this.graphics.lineStyle(4, 0xff0000, 1); // Thick red border
+    // Border - DARK GREEN
+    this.graphics.lineStyle(3, 0x008800, 1);
+    this.graphics.strokeRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
+  }
+
+  /**
+   * Draw an invalid piece tile (cannot place here)
+   */
+  private drawInvalidTile(x: number, y: number): void {
+    // Fill - RED for invalid placement
+    this.graphics.fillStyle(0xff0000, 0.8); // Red with slight transparency
+    this.graphics.fillRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
+
+    // Border - DARK RED
+    this.graphics.lineStyle(3, 0x880000, 1);
     this.graphics.strokeRect(x + 2, y + 2, this.tileSize - 4, this.tileSize - 4);
 
-    console.log(`Drawing piece tile at (${x}, ${y})`);
+    // X pattern to indicate invalid
+    this.graphics.lineStyle(2, 0xffffff, 0.6);
+    this.graphics.lineBetween(x + 4, y + 4, x + this.tileSize - 4, y + this.tileSize - 4);
+    this.graphics.lineBetween(x + this.tileSize - 4, y + 4, x + 4, y + this.tileSize - 4);
   }
 
   /**

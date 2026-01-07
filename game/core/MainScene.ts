@@ -166,6 +166,13 @@ export class MainScene extends Phaser.Scene {
     this.keySpace = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.keyR = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
+    // Explicitly capture ESC key for restart
+    const keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    keyEsc.on('down', () => {
+      sceneLogger.info("ESC key pressed - Restarting game");
+      this.scene.restart();
+    });
+
     // ALTERNATIVE: Listen to raw keyboard events directly
     // This ensures we catch keyboard events even if Phaser's JustDown isn't working
     const handleInput = (code: string, source: string = "PHASER") => {
@@ -616,14 +623,18 @@ export class MainScene extends Phaser.Scene {
     const piecePos = currentPiece.position;
     const pieceName = currentPiece.name;
 
-    logger.info(`Rendering piece: ${pieceName} at position (${piecePos.x}, ${piecePos.y})`);
+    // Get invalid tiles for visual feedback
+    const invalidTiles = this.buildSystem.getInvalidTiles();
 
-    // Render the current piece
+    logger.info(`Rendering piece: ${pieceName} at position (${piecePos.x}, ${piecePos.y}), invalid tiles: ${invalidTiles.length}`);
+
+    // Render the current piece with invalid tile highlighting
     this.pieceRenderer.renderPiece(
       currentPiece,
       this.mapOffsetX,
       this.mapOffsetY,
-      false
+      false,
+      invalidTiles
     );
 
     // Add debug indicator
