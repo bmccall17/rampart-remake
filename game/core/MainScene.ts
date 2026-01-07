@@ -402,6 +402,8 @@ export class MainScene extends Phaser.Scene {
           logger.warn("No castles enclosed - player will have 0 cannons!");
         }
         this.deploySystem.startDeployPhase(this.enclosedCastles);
+        // Spawn ships early so player can see them while placing cannons
+        this.combatSystem.spawnShipsForPreview();
         break;
       case GamePhase.COMBAT:
         logger.info("Entering COMBAT phase - Ships spawning");
@@ -768,16 +770,18 @@ export class MainScene extends Phaser.Scene {
     this.shipRenderer.clear();
     this.projectileRenderer.clear();
 
-    // Only render during COMBAT phase
+    // Render ships during DEPLOY phase (preview) and COMBAT phase
+    if (currentPhase === GamePhase.DEPLOY || currentPhase === GamePhase.COMBAT) {
+      const ships = this.combatSystem.getShips();
+      this.shipRenderer.renderShips(ships, this.mapOffsetX, this.mapOffsetY);
+    }
+
+    // Only render projectiles and update map during COMBAT phase
     if (currentPhase !== GamePhase.COMBAT) return;
 
     // Re-render map tiles to show wall damage (craters) in real-time
     this.tileRenderer.clear();
     this.renderMap();
-
-    // Render ships
-    const ships = this.combatSystem.getShips();
-    this.shipRenderer.renderShips(ships, this.mapOffsetX, this.mapOffsetY);
 
     // Render projectiles
     const projectiles = this.combatSystem.getProjectiles();

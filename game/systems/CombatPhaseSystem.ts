@@ -17,16 +17,34 @@ export class CombatPhaseSystem {
   }
 
   /**
-   * Start combat phase
+   * Spawn ships early (for visibility during DEPLOY phase)
+   * Ships will be visible but won't move or fire until combat starts
    */
-  startCombatPhase(cannons: Cannon[]): void {
-    this.cannons = [...cannons];
+  spawnShipsForPreview(): void {
     this.ships = [];
     this.projectiles = [];
     this.shipsDefeated = 0;
 
-    // Spawn initial wave of ships
+    // Spawn ships so player can see them during DEPLOY
     this.spawnShipWave();
+
+    logger.event("ShipsSpawnedForPreview", {
+      shipCount: this.ships.length,
+    });
+  }
+
+  /**
+   * Start combat phase
+   */
+  startCombatPhase(cannons: Cannon[]): void {
+    this.cannons = [...cannons];
+    this.projectiles = [];
+    this.shipsDefeated = 0;
+
+    // If ships weren't already spawned during preview, spawn them now
+    if (this.ships.length === 0) {
+      this.spawnShipWave();
+    }
 
     logger.event("CombatPhaseStarted", {
       cannons: this.cannons.length,
@@ -441,7 +459,13 @@ export class CombatPhaseSystem {
           }
         }
       } else {
-        // Enemy projectile - first check if it hits a cannon
+        // Enemy projectile - only check collision when projectile reaches target
+        // This simulates the cannonball arcing OVER terrain and landing at target
+        if (projectile.progress < 0.95) {
+          continue; // Still in flight, arcing over terrain
+        }
+
+        // Projectile has reached target - check for hits
         let hitCannon = false;
         for (let i = this.cannons.length - 1; i >= 0; i--) {
           const cannon = this.cannons[i];
