@@ -17,7 +17,6 @@ import { ProjectileRenderer } from "../systems/ProjectileRenderer";
 import { GameStateManager, GameState } from "./GameStateManager";
 import { GameOverScreen } from "../ui/GameOverScreen";
 import { LevelCompleteScreen } from "../ui/LevelCompleteScreen";
-import { InputDebugDisplay } from "../ui/InputDebugDisplay";
 
 const sceneLogger = createLogger("MainScene", true);
 
@@ -36,7 +35,6 @@ export class MainScene extends Phaser.Scene {
   private gameStateManager!: GameStateManager;
   private gameOverScreen!: GameOverScreen;
   private levelCompleteScreen!: LevelCompleteScreen;
-  private inputDebugDisplay!: InputDebugDisplay;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -94,10 +92,6 @@ export class MainScene extends Phaser.Scene {
     this.gameStateManager = new GameStateManager();
     this.gameOverScreen = new GameOverScreen(this);
     this.levelCompleteScreen = new LevelCompleteScreen(this);
-
-    // Initialize input debug display
-    this.inputDebugDisplay = new InputDebugDisplay(this);
-    this.inputDebugDisplay.setVisible(true); // Always visible for debugging
 
     // Initialize Phase Manager
     this.initializePhaseManager();
