@@ -59,6 +59,7 @@ export interface Projectile {
   position: Position;
   velocity: { x: number; y: number };
   source: "player" | "enemy";
+  sourceId: string; // ID of the cannon or ship that fired this projectile
   damage: number;
   isActive: boolean;
 }

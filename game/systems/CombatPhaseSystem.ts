@@ -189,9 +189,21 @@ export class CombatPhaseSystem {
   }
 
   /**
+   * Check if a source (cannon or ship) has an active projectile in flight
+   */
+  private hasActiveProjectile(sourceId: string): boolean {
+    return this.projectiles.some(p => p.isActive && p.sourceId === sourceId);
+  }
+
+  /**
    * Ship fires a projectile at a random land tile
    */
   private shipFireProjectile(ship: Ship): void {
+    // Only allow one projectile per ship at a time
+    if (this.hasActiveProjectile(ship.id)) {
+      return;
+    }
+
     // Find a random land tile to shoot at
     const landTiles: Position[] = [];
     const width = this.grid.getWidth();
@@ -222,6 +234,7 @@ export class CombatPhaseSystem {
         y: (dy / distance) * speed,
       },
       source: "enemy",
+      sourceId: ship.id,
       damage: 1,
       isActive: true,
     };
@@ -305,7 +318,7 @@ export class CombatPhaseSystem {
   /**
    * Fire cannon at target position
    */
-  fireCannon(cannonId: string, targetPos: Position): void {
+  fireCannon(cannonId: string, targetPos: Position): boolean {
     const cannon = this.cannons.find((c) => c.id === cannonId);
     if (!cannon) {
       logger.warn("Fire cannon failed: Cannon not found", {
@@ -314,7 +327,13 @@ export class CombatPhaseSystem {
         availableCannons: this.cannons.length,
         cannonIds: this.cannons.map(c => c.id),
       });
-      return;
+      return false;
+    }
+
+    // Only allow one projectile per cannon at a time
+    if (this.hasActiveProjectile(cannonId)) {
+      logger.info("Fire cannon blocked: Projectile already in flight", { cannonId });
+      return false;
     }
 
     const dx = targetPos.x - cannon.position.x;
@@ -330,6 +349,7 @@ export class CombatPhaseSystem {
         y: (dy / distance) * speed,
       },
       source: "player",
+      sourceId: cannonId,
       damage: 1,
       isActive: true,
     };
@@ -343,6 +363,7 @@ export class CombatPhaseSystem {
       distance: distance.toFixed(2),
       velocity: projectile.velocity,
     });
+    return true;
   }
 
   /**
