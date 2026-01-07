@@ -106,7 +106,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.8.1 - Piece Spawn Debugging",
+      "v0.0.7 - Input & Map Overhaul",
       {
         fontSize: "14px",
         color: "#888888",
