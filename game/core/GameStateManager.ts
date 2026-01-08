@@ -19,13 +19,17 @@ export interface GameStats {
   currentWave: number;
 }
 
+const HIGH_SCORE_KEY = "rampart_high_score";
+
 export class GameStateManager {
   private gameState: GameState = GameState.PLAYING;
   private stats: GameStats;
+  private highScore: number = 0;
   private readonly MAX_LIVES = 3;
   private readonly STARTING_LIVES = 3;
 
   constructor() {
+    this.highScore = this.loadHighScore();
     this.stats = {
       level: 1,
       score: 0,
@@ -262,5 +266,55 @@ export class GameStateManager {
       score,
       lives,
     });
+  }
+
+  private loadHighScore(): number {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return 0;
+    }
+    const stored = localStorage.getItem(HIGH_SCORE_KEY);
+    return stored ? parseInt(stored, 10) : 0;
+  }
+
+  private saveHighScore(score: number): void {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return;
+    }
+    localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+    logger.info("High score saved", { score });
+  }
+
+  updateHighScore(): boolean {
+    if (this.stats.score > this.highScore) {
+      this.highScore = this.stats.score;
+      this.saveHighScore(this.highScore);
+      return true;
+    }
+    return false;
+  }
+
+  getHighScore(): number {
+    return this.highScore;
+  }
+
+  getScoreBreakdown(): {
+    shipsDestroyed: number;
+    shipsPoints: number;
+    territoriesHeld: number;
+    territoriesPoints: number;
+    levelBonus: number;
+    totalScore: number;
+  } {
+    const shipsPoints = this.stats.shipsDestroyed * 100;
+    const territoriesPoints = this.stats.territoriesHeld * 50;
+    const levelBonus = this.stats.level * 200;
+    return {
+      shipsDestroyed: this.stats.shipsDestroyed,
+      shipsPoints,
+      territoriesHeld: this.stats.territoriesHeld,
+      territoriesPoints,
+      levelBonus,
+      totalScore: this.stats.score,
+    };
   }
 }

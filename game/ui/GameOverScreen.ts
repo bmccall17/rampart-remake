@@ -9,11 +9,14 @@ export class GameOverScreen {
     this.scene = scene;
   }
 
-  /**
-   * Show game over screen
-   */
-  show(score: number, level: number, shipsDestroyed: number, onRestart: () => void): void {
-    // Create dark overlay
+  show(
+    score: number,
+    level: number,
+    shipsDestroyed: number,
+    highScore: number,
+    isNewHighScore: boolean,
+    onRestart: () => void
+  ): void {
     const overlay = this.scene.add.rectangle(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
@@ -23,9 +26,8 @@ export class GameOverScreen {
       0.8
     );
 
-    // Create panel background
     const panelWidth = 500;
-    const panelHeight = 400;
+    const panelHeight = 450;
     const panel = this.scene.add.rectangle(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
@@ -36,10 +38,9 @@ export class GameOverScreen {
     );
     panel.setStrokeStyle(4, 0xff4444);
 
-    // Game Over title
     const title = this.scene.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 - 150,
+      GAME_HEIGHT / 2 - 170,
       "GAME OVER",
       {
         fontSize: "64px",
@@ -49,15 +50,15 @@ export class GameOverScreen {
     );
     title.setOrigin(0.5);
 
-    // Stats
-    const statsY = GAME_HEIGHT / 2 - 50;
+    const elements: Phaser.GameObjects.GameObject[] = [overlay, panel, title];
+
+    const statsY = GAME_HEIGHT / 2 - 80;
     const statsText = [
       `Final Score: ${score}`,
       `Level Reached: ${level}`,
       `Ships Destroyed: ${shipsDestroyed}`,
     ];
 
-    const statTexts: Phaser.GameObjects.Text[] = [];
     statsText.forEach((text, index) => {
       const stat = this.scene.add.text(
         GAME_WIDTH / 2,
@@ -69,13 +70,49 @@ export class GameOverScreen {
         }
       );
       stat.setOrigin(0.5);
-      statTexts.push(stat);
+      elements.push(stat);
     });
 
-    // Restart button
+    const highScoreY = statsY + 140;
+    const divider = this.scene.add.rectangle(
+      GAME_WIDTH / 2,
+      highScoreY - 10,
+      300,
+      2,
+      0x666666
+    );
+    elements.push(divider);
+
+    if (isNewHighScore) {
+      const newHighLabel = this.scene.add.text(
+        GAME_WIDTH / 2,
+        highScoreY + 20,
+        "🏆 NEW HIGH SCORE! 🏆",
+        {
+          fontSize: "28px",
+          color: "#ffff00",
+          fontStyle: "bold",
+        }
+      );
+      newHighLabel.setOrigin(0.5);
+      elements.push(newHighLabel);
+    } else {
+      const highScoreLabel = this.scene.add.text(
+        GAME_WIDTH / 2,
+        highScoreY + 20,
+        `High Score: ${highScore}`,
+        {
+          fontSize: "24px",
+          color: "#aaaaaa",
+        }
+      );
+      highScoreLabel.setOrigin(0.5);
+      elements.push(highScoreLabel);
+    }
+
     const buttonWidth = 200;
     const buttonHeight = 60;
-    const buttonY = GAME_HEIGHT / 2 + 120;
+    const buttonY = GAME_HEIGHT / 2 + 160;
 
     const restartButton = this.scene.add.rectangle(
       GAME_WIDTH / 2,
@@ -100,7 +137,6 @@ export class GameOverScreen {
     );
     restartText.setOrigin(0.5);
 
-    // Button hover effects
     restartButton.on("pointerover", () => {
       restartButton.setFillStyle(0x55ff55);
     });
@@ -114,22 +150,13 @@ export class GameOverScreen {
       onRestart();
     });
 
-    // Create container
+    elements.push(restartButton, restartText);
+
     this.container = this.scene.add.container(0, 0);
-    this.container.add([
-      overlay,
-      panel,
-      title,
-      ...statTexts,
-      restartButton,
-      restartText,
-    ]);
+    this.container.add(elements);
     this.container.setDepth(1000);
   }
 
-  /**
-   * Hide game over screen
-   */
   hide(): void {
     if (this.container) {
       this.container.destroy();
@@ -137,9 +164,6 @@ export class GameOverScreen {
     }
   }
 
-  /**
-   * Check if visible
-   */
   isVisible(): boolean {
     return this.container !== null;
   }

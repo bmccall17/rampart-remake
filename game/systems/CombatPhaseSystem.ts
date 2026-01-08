@@ -4,6 +4,8 @@ import { createLogger } from "../logging/Logger";
 
 const logger = createLogger("CombatPhaseSystem", true);
 
+export type ShipDestroyedCallback = (ship: Ship, points: number) => void;
+
 export class CombatPhaseSystem {
   private grid: Grid;
   private ships: Ship[] = [];
@@ -12,9 +14,14 @@ export class CombatPhaseSystem {
   private shipsDefeated: number = 0;
   private targetShipsPerWave: number = 5;
   private currentLevel: number = 1;
+  private onShipDestroyed: ShipDestroyedCallback | null = null;
 
   constructor(grid: Grid) {
     this.grid = grid;
+  }
+
+  setOnShipDestroyed(callback: ShipDestroyedCallback): void {
+    this.onShipDestroyed = callback;
   }
 
   /**
@@ -461,10 +468,14 @@ export class CombatPhaseSystem {
             if (ship.health <= 0) {
               ship.isAlive = false;
               this.shipsDefeated++;
+              const points = 100;
               logger.event("ShipDestroyed", {
                 shipId: ship.id,
                 totalDefeated: this.shipsDefeated,
               });
+              if (this.onShipDestroyed) {
+                this.onShipDestroyed(ship, points);
+              }
             }
 
             break;

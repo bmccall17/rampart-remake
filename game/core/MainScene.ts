@@ -17,6 +17,7 @@ import { ProjectileRenderer } from "../systems/ProjectileRenderer";
 import { GameStateManager, GameState } from "./GameStateManager";
 import { GameOverScreen } from "../ui/GameOverScreen";
 import { LevelCompleteScreen } from "../ui/LevelCompleteScreen";
+import { ScorePopup } from "../ui/ScorePopup";
 
 const sceneLogger = createLogger("MainScene", true);
 
@@ -35,6 +36,7 @@ export class MainScene extends Phaser.Scene {
   private gameStateManager!: GameStateManager;
   private gameOverScreen!: GameOverScreen;
   private levelCompleteScreen!: LevelCompleteScreen;
+  private scorePopup!: ScorePopup;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -111,6 +113,14 @@ export class MainScene extends Phaser.Scene {
     }
     this.gameOverScreen = new GameOverScreen(this);
     this.levelCompleteScreen = new LevelCompleteScreen(this);
+    this.scorePopup = new ScorePopup(this);
+
+    // Set up ship destroyed callback for score popups
+    this.combatSystem.setOnShipDestroyed((ship, points) => {
+      const screenX = this.mapOffsetX + ship.position.x * TILE_SIZE;
+      const screenY = this.mapOffsetY + ship.position.y * TILE_SIZE;
+      this.scorePopup.show(screenX, screenY, points, "ship");
+    });
 
     // Initialize Phase Manager
     this.initializePhaseManager();
@@ -477,20 +487,24 @@ export class MainScene extends Phaser.Scene {
 
   private showGameOver(): void {
     const stats = this.gameStateManager.getStats();
+    const isNewHighScore = this.gameStateManager.updateHighScore();
+    const highScore = this.gameStateManager.getHighScore();
     this.gameOverScreen.show(
       stats.score,
       stats.level,
       stats.totalShipsDestroyed,
+      highScore,
+      isNewHighScore,
       () => this.restartGame()
     );
   }
 
   private showLevelComplete(): void {
+    const breakdown = this.gameStateManager.getScoreBreakdown();
     const stats = this.gameStateManager.getStats();
     this.levelCompleteScreen.show(
       stats.level,
-      stats.score,
-      stats.shipsDestroyed,
+      breakdown,
       () => this.nextLevel()
     );
   }
@@ -657,6 +671,9 @@ export class MainScene extends Phaser.Scene {
 
     // Draw crosshair and target markers during COMBAT
     this.drawCrosshair();
+
+    // Update score popups
+    this.scorePopup.update();
 
     // Update HUD with current game stats
     const currentCannonCount = this.deploySystem.getCannons().length;

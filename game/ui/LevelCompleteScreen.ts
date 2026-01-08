@@ -1,6 +1,15 @@
 import * as Phaser from "phaser";
 import { GAME_WIDTH, GAME_HEIGHT } from "../core/GameConfig";
 
+export interface ScoreBreakdown {
+  shipsDestroyed: number;
+  shipsPoints: number;
+  territoriesHeld: number;
+  territoriesPoints: number;
+  levelBonus: number;
+  totalScore: number;
+}
+
 export class LevelCompleteScreen {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container | null = null;
@@ -9,16 +18,11 @@ export class LevelCompleteScreen {
     this.scene = scene;
   }
 
-  /**
-   * Show level complete screen
-   */
   show(
     level: number,
-    score: number,
-    shipsDestroyed: number,
+    breakdown: ScoreBreakdown,
     onContinue: () => void
   ): void {
-    // Create dark overlay
     const overlay = this.scene.add.rectangle(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
@@ -28,9 +32,8 @@ export class LevelCompleteScreen {
       0.7
     );
 
-    // Create panel background
     const panelWidth = 500;
-    const panelHeight = 400;
+    const panelHeight = 450;
     const panel = this.scene.add.rectangle(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
@@ -41,46 +44,133 @@ export class LevelCompleteScreen {
     );
     panel.setStrokeStyle(4, 0x44ff44);
 
-    // Level Complete title
     const title = this.scene.add.text(
       GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 - 150,
+      GAME_HEIGHT / 2 - 180,
       "LEVEL COMPLETE!",
       {
-        fontSize: "56px",
+        fontSize: "48px",
         color: "#44ff44",
         fontStyle: "bold",
       }
     );
     title.setOrigin(0.5);
 
-    // Stats
-    const statsY = GAME_HEIGHT / 2 - 50;
-    const statsText = [
-      `Level ${level} Complete`,
-      `Score: ${score}`,
-      `Ships Destroyed: ${shipsDestroyed}`,
-    ];
+    const statsY = GAME_HEIGHT / 2 - 100;
+    const lineHeight = 35;
+    const elements: Phaser.GameObjects.GameObject[] = [overlay, panel, title];
 
-    const statTexts: Phaser.GameObjects.Text[] = [];
-    statsText.forEach((text, index) => {
-      const stat = this.scene.add.text(
-        GAME_WIDTH / 2,
-        statsY + index * 40,
-        text,
+    const levelLabel = this.scene.add.text(
+      GAME_WIDTH / 2,
+      statsY,
+      `Level ${level} Complete`,
+      {
+        fontSize: "28px",
+        color: "#ffffff",
+        fontStyle: "bold",
+      }
+    );
+    levelLabel.setOrigin(0.5);
+    elements.push(levelLabel);
+
+    const divider1 = this.scene.add.rectangle(
+      GAME_WIDTH / 2,
+      statsY + lineHeight,
+      300,
+      2,
+      0x666666
+    );
+    elements.push(divider1);
+
+    const createStatLine = (
+      label: string,
+      value: string,
+      yPos: number,
+      valueColor: string = "#ffff00"
+    ) => {
+      const labelText = this.scene.add.text(
+        GAME_WIDTH / 2 - 120,
+        yPos,
+        label,
         {
-          fontSize: "24px",
-          color: "#ffffff",
+          fontSize: "20px",
+          color: "#aaaaaa",
         }
       );
-      stat.setOrigin(0.5);
-      statTexts.push(stat);
-    });
+      labelText.setOrigin(0, 0.5);
 
-    // Continue button
+      const valueText = this.scene.add.text(
+        GAME_WIDTH / 2 + 120,
+        yPos,
+        value,
+        {
+          fontSize: "20px",
+          color: valueColor,
+          fontStyle: "bold",
+        }
+      );
+      valueText.setOrigin(1, 0.5);
+
+      elements.push(labelText, valueText);
+    };
+
+    let currentY = statsY + lineHeight * 1.5;
+
+    createStatLine(
+      `Ships Destroyed (${breakdown.shipsDestroyed})`,
+      `+${breakdown.shipsPoints}`,
+      currentY
+    );
+    currentY += lineHeight;
+
+    createStatLine(
+      `Territories Held (${breakdown.territoriesHeld})`,
+      `+${breakdown.territoriesPoints}`,
+      currentY
+    );
+    currentY += lineHeight;
+
+    createStatLine(`Level Bonus`, `+${breakdown.levelBonus}`, currentY);
+    currentY += lineHeight;
+
+    const divider2 = this.scene.add.rectangle(
+      GAME_WIDTH / 2,
+      currentY,
+      300,
+      2,
+      0x666666
+    );
+    elements.push(divider2);
+    currentY += lineHeight * 0.8;
+
+    const totalLabel = this.scene.add.text(
+      GAME_WIDTH / 2 - 120,
+      currentY,
+      "Total Score",
+      {
+        fontSize: "24px",
+        color: "#ffffff",
+        fontStyle: "bold",
+      }
+    );
+    totalLabel.setOrigin(0, 0.5);
+
+    const totalValue = this.scene.add.text(
+      GAME_WIDTH / 2 + 120,
+      currentY,
+      breakdown.totalScore.toString(),
+      {
+        fontSize: "28px",
+        color: "#44ff44",
+        fontStyle: "bold",
+      }
+    );
+    totalValue.setOrigin(1, 0.5);
+    elements.push(totalLabel, totalValue);
+
     const buttonWidth = 200;
     const buttonHeight = 60;
-    const buttonY = GAME_HEIGHT / 2 + 120;
+    const buttonY = GAME_HEIGHT / 2 + 170;
 
     const continueButton = this.scene.add.rectangle(
       GAME_WIDTH / 2,
@@ -105,7 +195,6 @@ export class LevelCompleteScreen {
     );
     continueText.setOrigin(0.5);
 
-    // Button hover effects
     continueButton.on("pointerover", () => {
       continueButton.setFillStyle(0x55ff55);
     });
@@ -119,22 +208,13 @@ export class LevelCompleteScreen {
       onContinue();
     });
 
-    // Create container
+    elements.push(continueButton, continueText);
+
     this.container = this.scene.add.container(0, 0);
-    this.container.add([
-      overlay,
-      panel,
-      title,
-      ...statTexts,
-      continueButton,
-      continueText,
-    ]);
+    this.container.add(elements);
     this.container.setDepth(1000);
   }
 
-  /**
-   * Hide level complete screen
-   */
   hide(): void {
     if (this.container) {
       this.container.destroy();
@@ -142,9 +222,6 @@ export class LevelCompleteScreen {
     }
   }
 
-  /**
-   * Check if visible
-   */
   isVisible(): boolean {
     return this.container !== null;
   }
