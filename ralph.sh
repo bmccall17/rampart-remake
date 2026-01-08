@@ -51,7 +51,10 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
+LOG_FILE="$SCRIPT_DIR/ralph.log"
 echo "Starting Ralph - Max iterations: $MAX_ITERATIONS"
+echo "Logging to: $LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo ""
