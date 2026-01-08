@@ -6,10 +6,27 @@ Started: Phase 8 - Polish & Advanced Features
 - Use `npm run build` to verify code compiles (no test suite yet)
 - Phaser scene is in game/core/MainScene.ts
 - Game state is managed by GameStateManager.ts
-- Phase transitions handled by PhaseStateManager
+- Phase transitions handled by PhaseManager.ts (not PhaseStateManager)
 - Combat system in CombatPhaseSystem.ts
 - Ship types: Scout, Frigate, Destroyer (see game/types/index.ts)
 - TILE_SIZE is 16px (defined in GameConfig.ts)
 - Map is 48x36 tiles, procedurally generated
+- Level scaling: CombatPhaseSystem.setLevel() adjusts ship count and speed
+- Scene restart with data: use scene.restart({ level, score, lives }) to preserve state
 
+---
+
+## 2026-01-08 - US-001
+Thread: https://ampcode.com/threads/T-019b9dc5-a327-7762-9fce-ed3f9d8178ae
+- Implemented level progression system with increasing difficulty
+- Files changed:
+  - game/systems/CombatPhaseSystem.ts - Added setLevel(), level-based ship count (5+level), speed scaling (+5%/level)
+  - game/core/PhaseManager.ts - Already supported custom phase configs (used for build duration)
+  - game/core/MainScene.ts - Added level-based build duration, scene data passing for level persistence
+  - game/core/GameStateManager.ts - Added initializeWith() for state restoration
+- **Learnings for future iterations:**
+  - PhaseManager takes a partial config in constructor to override default durations
+  - Scene.restart() accepts data object that is passed to create() method
+  - HUD already had level display implemented (level prop in HUDData)
+  - Ship speed is calculated in getShipStats() method, multiply by level-based multiplier
 ---
