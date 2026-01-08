@@ -245,4 +245,22 @@ export class GameStateManager {
   reset(): void {
     this.startNewGame();
   }
+
+  /**
+   * Initialize with specific values (used when resuming from scene restart)
+   */
+  initializeWith(level: number, score: number, lives: number): void {
+    this.stats.level = level;
+    this.stats.score = score;
+    this.stats.lives = lives;
+    this.stats.shipsDestroyed = 0;
+    this.stats.currentWave = 1;
+    this.gameState = GameState.PLAYING;
+
+    logger.info("GameStateManager initialized with values", {
+      level,
+      score,
+      lives,
+    });
+  }
 }

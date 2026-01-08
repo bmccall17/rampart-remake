@@ -11,9 +11,19 @@ export class CombatPhaseSystem {
   private cannons: Cannon[] = [];
   private shipsDefeated: number = 0;
   private targetShipsPerWave: number = 5;
+  private currentLevel: number = 1;
 
   constructor(grid: Grid) {
     this.grid = grid;
+  }
+
+  /**
+   * Set the current level for difficulty scaling
+   */
+  setLevel(level: number): void {
+    this.currentLevel = level;
+    this.targetShipsPerWave = 5 + level; // 5 base + level number
+    logger.info(`Level set to ${level}, ships per wave: ${this.targetShipsPerWave}`);
   }
 
   /**
@@ -106,7 +116,7 @@ export class CombatPhaseSystem {
   }
 
   /**
-   * Get stats for each ship type
+   * Get stats for each ship type, scaled by current level
    */
   private getShipStats(type: "scout" | "destroyer" | "frigate"): {
     health: number;
@@ -114,14 +124,16 @@ export class CombatPhaseSystem {
     fireRate: number;
     damage: number;
   } {
+    const speedMultiplier = 1 + (this.currentLevel - 1) * 0.05; // +5% per level
+    
     switch (type) {
       case "scout":
-        return { health: 2, speed: 0.8, fireRate: 0.004, damage: 1 };
+        return { health: 2, speed: 0.8 * speedMultiplier, fireRate: 0.004, damage: 1 };
       case "destroyer":
-        return { health: 5, speed: 0.3, fireRate: 0.002, damage: 2 };
+        return { health: 5, speed: 0.3 * speedMultiplier, fireRate: 0.002, damage: 2 };
       case "frigate":
       default:
-        return { health: 3, speed: 0.5, fireRate: 0.003, damage: 1 };
+        return { health: 3, speed: 0.5 * speedMultiplier, fireRate: 0.003, damage: 1 };
     }
   }
 

@@ -63,9 +63,12 @@ export class MainScene extends Phaser.Scene {
     super({ key: "MainScene" });
   }
 
-  create() {
+  create(data?: { level?: number; score?: number; lives?: number }) {
     sceneLogger.info("MainScene created");
     sceneLogger.event("SceneCreated", { scene: "MainScene" });
+
+    // Initialize level from passed data or default to 1
+    this.currentLevel = data?.level ?? 1;
 
     // Create background
     this.add.rectangle(
@@ -98,6 +101,14 @@ export class MainScene extends Phaser.Scene {
 
     // Initialize game state manager
     this.gameStateManager = new GameStateManager();
+    // Initialize with passed data if present (for level progression)
+    if (data && (data.level !== undefined || data.score !== undefined || data.lives !== undefined)) {
+      this.gameStateManager.initializeWith(
+        data.level ?? 1,
+        data.score ?? 0,
+        data.lives ?? 3
+      );
+    }
     this.gameOverScreen = new GameOverScreen(this);
     this.levelCompleteScreen = new LevelCompleteScreen(this);
 
@@ -114,7 +125,7 @@ export class MainScene extends Phaser.Scene {
     this.add.text(
       10,
       GAME_HEIGHT - 30,
-      "v0.9.0 - Ship AI & Repairs",
+      "v0.9.1 - Combat Polish",
       {
         fontSize: "14px",
         color: "#888888",
@@ -137,8 +148,16 @@ export class MainScene extends Phaser.Scene {
   }
 
   private initializePhaseManager(): void {
-    // Create phase manager starting with BUILD phase
-    this.phaseManager = new PhaseManager(GamePhase.BUILD);
+    // Calculate build phase duration based on level (30s base, -1s per level, min 20s)
+    const buildDurationMs = Math.max(20000, 30000 - (this.currentLevel - 1) * 1000);
+
+    // Create phase manager starting with BUILD phase with level-scaled duration
+    this.phaseManager = new PhaseManager(GamePhase.BUILD, {
+      [GamePhase.BUILD]: { duration: buildDurationMs, canSkip: false },
+    });
+
+    // Set level on combat system for difficulty scaling
+    this.combatSystem.setLevel(this.currentLevel);
 
     // Set phase change callback
     this.phaseManager.setOnPhaseChange((event) => {
@@ -478,13 +497,14 @@ export class MainScene extends Phaser.Scene {
 
   private restartGame(): void {
     this.gameStateManager.reset();
-    this.scene.restart();
+    this.scene.restart({ level: 1, score: 0, lives: 3 });
   }
 
   private nextLevel(): void {
     this.gameStateManager.nextLevel();
-    // For now, just restart (future: load different map)
-    this.scene.restart();
+    const stats = this.gameStateManager.getStats();
+    // Restart scene with preserved game state
+    this.scene.restart({ level: stats.level, score: stats.score, lives: stats.lives });
   }
 
   private loadMap(level: number): void {

@@ -1,0 +1,15 @@
+# Ralph Progress Log
+Started: Phase 8 - Polish & Advanced Features
+
+## Codebase Patterns
+- This is a Next.js + Phaser.js game - all game logic is in /game folder
+- Use `npm run build` to verify code compiles (no test suite yet)
+- Phaser scene is in game/core/MainScene.ts
+- Game state is managed by GameStateManager.ts
+- Phase transitions handled by PhaseStateManager
+- Combat system in CombatPhaseSystem.ts
+- Ship types: Scout, Frigate, Destroyer (see game/types/index.ts)
+- TILE_SIZE is 16px (defined in GameConfig.ts)
+- Map is 48x36 tiles, procedurally generated
+
+---

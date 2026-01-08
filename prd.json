@@ -1,0 +1,110 @@
+{
+  "project": "Rampart Remake",
+  "branchName": "ralph/phase-8-polish",
+  "description": "Phase 8 - Polish & Advanced Features: Sound effects, visual polish, level progression, and score improvements",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Level Progression System",
+      "description": "As a player, I want increasing difficulty as I progress so the game stays challenging.",
+      "acceptanceCriteria": [
+        "Each level spawns more ships (5 base + level number)",
+        "Ship speed increases slightly each level (+5% per level)",
+        "Build phase time decreases slightly each level (30s base, -1s per level, min 20s)",
+        "Level number displayed in HUD",
+        "npm run build passes without errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Use GameStateManager.level to scale difficulty in CombatPhaseSystem and PhaseStateManager"
+    },
+    {
+      "id": "US-002",
+      "title": "Score Display Improvements",
+      "description": "As a player, I want to see a detailed score breakdown at the end of each round.",
+      "acceptanceCriteria": [
+        "End-of-round score breakdown shows: ships destroyed, territories held, bonus points",
+        "Score popup appears briefly when points are earned during gameplay",
+        "High score saved to localStorage and displayed on game over screen",
+        "npm run build passes without errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Create ScorePopup component, update GameOverScreen to show high score"
+    },
+    {
+      "id": "US-003",
+      "title": "Sound Effects - Combat",
+      "description": "As a player, I want audio feedback during combat to make the game more immersive.",
+      "acceptanceCriteria": [
+        "Cannon fire sound plays when player fires",
+        "Explosion sound plays when ship is destroyed",
+        "Impact sound plays when cannonball hits terrain",
+        "Sounds use Web Audio API or Phaser audio",
+        "npm run build passes without errors"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use Phaser's built-in audio system. Can use programmatic audio generation or simple tone sounds as placeholders"
+    },
+    {
+      "id": "US-004",
+      "title": "Sound Effects - UI and Phases",
+      "description": "As a player, I want audio cues for phase transitions and UI actions.",
+      "acceptanceCriteria": [
+        "Phase transition sound plays when phase changes",
+        "Piece placement sound plays when wall piece is placed",
+        "Cannon placement sound plays when cannon is deployed",
+        "Victory jingle plays on level complete",
+        "Defeat sound plays on game over",
+        "npm run build passes without errors"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Keep sounds subtle - short beeps/tones are fine"
+    },
+    {
+      "id": "US-005",
+      "title": "Visual Effects - Explosions",
+      "description": "As a player, I want visual explosion effects when ships are destroyed and projectiles hit.",
+      "acceptanceCriteria": [
+        "Particle explosion appears when ship is destroyed (orange/red particles)",
+        "Small impact effect appears when cannonball hits terrain",
+        "Water splash effect appears when cannonball misses (hits water)",
+        "Effects are performant (no frame drops)",
+        "npm run build passes without errors"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Use Phaser's particle system or simple sprite-based animations"
+    },
+    {
+      "id": "US-006",
+      "title": "Screen Shake Effect",
+      "description": "As a player, I want screen shake on big impacts to add punch to the combat.",
+      "acceptanceCriteria": [
+        "Camera shakes briefly when cannon fires",
+        "Stronger shake when ship is destroyed",
+        "Shake is subtle and doesn't cause motion sickness",
+        "npm run build passes without errors"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Use Phaser camera shake API"
+    },
+    {
+      "id": "US-007",
+      "title": "Multiple Island Maps",
+      "description": "As a player, I want variety in the maps I play on.",
+      "acceptanceCriteria": [
+        "At least 3 different map generation presets (small island, archipelago, large island)",
+        "Map type changes each level or is randomly selected",
+        "All maps have valid castle placements and playable coastlines",
+        "npm run build passes without errors"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Modify MapData.ts to support different generation parameters"
+    }
+  ]
+}

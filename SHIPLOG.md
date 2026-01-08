@@ -29,6 +29,32 @@
   | Mobile Support   | Touch controls for BUILD/DEPLOY/COMBAT                      | Medium     |
 
 
+## v0.9.1 - Combat Polish (2026-01-07)
+
+### Fixes & Improvements
+
+#### 1. Real-time Wall Damage Display
+- Walls now visibly turn to craters during combat (map re-renders each frame)
+
+#### 2. Pixel-Precise Target Markers
+- Target markers now appear at exact click position, not snapped to tile centers
+
+#### 3. Ships Visible During DEPLOY Phase
+- Ships spawn and are visible while placing cannons, letting players see the threat
+
+#### 4. Lofted Cannonball Arcs for Enemy Ships
+- Enemy projectiles now arc OVER terrain (progress-based collision)
+- Only check for impact when projectile reaches target (progress >= 95%)
+- Cannonballs no longer hit the first land tile they pass over
+
+---
+
+### Files Changed
+- `game/core/MainScene.ts` - Real-time map rendering, pixel target markers, ship preview
+- `game/systems/CombatPhaseSystem.ts` - Lofted arc collision, spawnShipsForPreview()
+
+---
+
 ## v0.9.0 - Ship AI & Repairs (2026-01-07)
 
 ### New Features

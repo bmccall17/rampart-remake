@@ -1,5 +1,19 @@
 # Change Log
 
+## Version 0.9.1 - Combat Polish (2026-01-07)
+
+### Fixes & Improvements
+- **Real-time Wall Damage**: Walls visibly turn to craters during combat
+- **Pixel-Precise Target Markers**: Markers appear at exact click position, not tile centers
+- **Ships Visible During DEPLOY**: Ships spawn early so players can see the threat while placing cannons
+- **Lofted Enemy Cannonball Arcs**: Enemy projectiles arc over terrain, only impacting at target (progress >= 95%)
+
+### Files Changed
+- `game/core/MainScene.ts` - Real-time map rendering, pixel markers, ship preview during DEPLOY
+- `game/systems/CombatPhaseSystem.ts` - Progress-based collision, spawnShipsForPreview()
+
+---
+
 ## Version 0.9.0 - Ship AI & Repairs (2026-01-07)
 
 ### New Features
