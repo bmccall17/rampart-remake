@@ -693,8 +693,16 @@ export class MainScene extends Phaser.Scene {
     // Handle phase-specific updates
     if (currentPhase === GamePhase.DEPLOY) {
       this.handleDeployPhaseInput();
+      // Speed up if all cannons placed
+      if (this.deploySystem.getRemainingCannonCount() === 0) {
+        this.phaseManager.speedUpPhase(time, 2000);
+      }
     } else if (currentPhase === GamePhase.COMBAT) {
       this.combatSystem.update(delta);
+      // Speed up if all ships destroyed
+      if (this.combatSystem.isCombatComplete()) {
+        this.phaseManager.speedUpPhase(time, 2000);
+      }
     }
 
     // Debug: Log phase changes (only when phase changes)

@@ -242,6 +242,27 @@ export class PhaseManager {
   }
 
   /**
+   * Speed up the current phase to end in a short delay (e.g., when objectives are complete)
+   * Returns true if speedup was applied, false if already sped up or not applicable
+   */
+  speedUpPhase(currentTime: number, delayMs: number = 2000): boolean {
+    const remaining = this.getTimeRemaining(currentTime);
+
+    // Only speed up if there's more time remaining than the delay
+    if (remaining > delayMs) {
+      // Adjust phase start time so remaining time equals delayMs
+      const duration = this.phaseConfigs[this.currentPhase].duration;
+      this.phaseStartTime = currentTime - (duration - delayMs);
+      logger.info("Phase sped up", {
+        phase: this.currentPhase,
+        newRemainingMs: delayMs
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Update phase configuration
    */
   updatePhaseConfig(phase: GamePhase, config: Partial<PhaseConfig>): void {

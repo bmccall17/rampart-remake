@@ -8,7 +8,8 @@
       "Bash(bd ready:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git stash drop:*)"
+      "Bash(git stash drop:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
