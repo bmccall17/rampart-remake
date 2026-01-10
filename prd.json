@@ -29,8 +29,8 @@
         "npm run build passes without errors"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Create ScorePopup component, update GameOverScreen to show high score"
+      "passes": true,
+      "notes": "ScorePopup, LevelCompleteScreen, and GameOverScreen all implemented with full integration"
     },
     {
       "id": "US-003",
@@ -44,8 +44,8 @@
         "npm run build passes without errors"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Use Phaser's built-in audio system. Can use programmatic audio generation or simple tone sounds as placeholders"
+      "passes": true,
+      "notes": "SoundManager.ts uses Web Audio API for programmatic retro-style sounds"
     },
     {
       "id": "US-004",
@@ -60,8 +60,8 @@
         "npm run build passes without errors"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Keep sounds subtle - short beeps/tones are fine"
+      "passes": true,
+      "notes": "All sounds integrated via SoundManager - rising tones, clicks, metallic clunks, and musical jingles"
     },
     {
       "id": "US-005",
@@ -75,8 +75,8 @@
         "npm run build passes without errors"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Use Phaser's particle system or simple sprite-based animations"
+      "passes": true,
+      "notes": "EffectsManager.ts provides simple particle-based effects with gravity and alpha fade"
     },
     {
       "id": "US-006",
@@ -89,8 +89,8 @@
         "npm run build passes without errors"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "Use Phaser camera shake API"
+      "passes": true,
+      "notes": "Uses Phaser cameras.main.shake() - cannon fire: 80ms/0.003, ship explosion: 200ms/0.008"
     },
     {
       "id": "US-007",
@@ -103,8 +103,8 @@
         "npm run build passes without errors"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Modify MapData.ts to support different generation parameters"
+      "passes": true,
+      "notes": "Three presets cycle per level: small (3-4 castles), large (5-7 castles), archipelago (3-5 islands with 4-6 castles)"
     }
   ]
 }

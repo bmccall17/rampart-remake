@@ -30,3 +30,94 @@ Thread: https://ampcode.com/threads/T-019b9dc5-a327-7762-9fce-ed3f9d8178ae
   - HUD already had level display implemented (level prop in HUDData)
   - Ship speed is calculated in getShipStats() method, multiply by level-based multiplier
 ---
+
+## 2026-01-10 - US-002 (Verification)
+- Verified US-002 was already fully implemented:
+  - ScorePopup.ts: Floating "+100 ship" popups when points earned
+  - LevelCompleteScreen.ts: End-of-round breakdown (ships destroyed, territories held, level bonus)
+  - GameOverScreen.ts: High score display with "NEW HIGH SCORE!" indicator
+  - GameStateManager.ts: localStorage persistence via updateHighScore()/getHighScore()
+  - MainScene.ts: All components integrated (lines 122, 490-505)
+- Build passes
+- Marked US-002 as passes: true in prd.json
+---
+
+## 2026-01-10 - US-003
+- Implemented combat sound effects using Web Audio API
+- Files changed:
+  - game/core/SoundManager.ts (NEW) - Programmatic audio generator with:
+    - playCannonFire() - Low boom with noise burst
+    - playShipExplosion() - Multi-layered rumble explosion
+    - playTerrainImpact() - Short thud
+    - playWaterSplash() - High-pass filtered noise (for future use)
+  - game/core/MainScene.ts - Integrated SoundManager:
+    - Cannon fire sound in fireClosestAvailableCannon()
+    - Ship explosion in onShipDestroyed callback
+    - Terrain impact via new setOnTerrainImpact callback
+    - Audio context resume on first user interaction
+  - game/systems/CombatPhaseSystem.ts - Added onTerrainImpact callback
+- **Learnings for future iterations:**
+  - Web Audio API requires resume() after user interaction (browser policy)
+  - Programmatic sounds: use oscillators + noise buffers for retro feel
+  - Add callbacks to CombatPhaseSystem for new sound events
+---
+
+## 2026-01-10 - US-004
+- Implemented UI and phase sound effects
+- New sounds in SoundManager.ts:
+  - playPhaseTransition() - Rising sine tone
+  - playPiecePlacement() - Short square wave click
+  - playCannonPlacement() - Metallic thunk + ping
+  - playVictory() - Ascending arpeggio (C5, E5, G5, C6)
+  - playDefeat() - Descending sad tones (G4, F4, E4, C4)
+- Integration in MainScene.ts:
+  - Phase transition sound in phaseManager callback
+  - Piece placement in BUILD input handlers (keyboard + mouse)
+  - Cannon placement in DEPLOY handler (checks return value)
+  - Victory in showLevelComplete()
+  - Defeat in showGameOver()
+---
+
+## 2026-01-10 - US-005
+- Implemented visual effects system
+- New file game/systems/EffectsManager.ts:
+  - createShipExplosion() - 20 orange/red particles + 10 yellow sparks
+  - createTerrainImpact() - 12 brown/dirt particles with upward bias
+  - createWaterSplash() - 15 blue droplets + 8 ripple ring particles
+  - Simple particle physics: gravity, alpha fade, size scaling
+- Updated CombatPhaseSystem.ts:
+  - onTerrainImpact callback now passes (gridX, gridY)
+  - Added onWaterSplash callback for water tile hits
+- Integration in MainScene.ts:
+  - effectsManager.update() in game loop
+  - Effects created in ship destroyed, terrain impact, and water splash callbacks
+---
+
+## 2026-01-10 - US-006
+- Implemented screen shake effects using Phaser camera API
+- In MainScene.ts:
+  - Cannon fire: this.cameras.main.shake(80, 0.003) - subtle, short
+  - Ship destruction: this.cameras.main.shake(200, 0.008) - stronger, longer
+- **Learnings for future iterations:**
+  - Phaser shake API: shake(duration_ms, intensity) - intensity ~0.01 is strong
+  - Keep intensity low (0.003-0.01) to avoid motion sickness
+---
+
+## 2026-01-10 - US-007
+- Implemented multiple map generation presets
+- Updated game/grid/MapData.ts:
+  - Added MapPreset type: "small" | "large" | "archipelago"
+  - Small Island: radius 0.25, 3-4 castles, 4 inlets
+  - Large Island: radius 0.42, 5-7 castles, 10 inlets
+  - Archipelago: 3-5 separate islands, 4-6 castles spread across them
+  - generateArchipelago() creates multiple islands with minimum spacing
+  - getMapByLevel() cycles presets: Level 1=small, Level 2=large, Level 3=archipelago
+- **Learnings for future iterations:**
+  - Use SeededRandom for reproducible procedural generation
+  - Archipelago needs minimum island spacing (~12 tiles) to prevent overlap
+  - Castle placement automatically finds valid land positions inland from coast
+---
+
+## ALL STORIES COMPLETE
+Phase 8 - Polish & Advanced Features is complete.
+All user stories US-001 through US-007 now pass.

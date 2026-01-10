@@ -52,21 +52,56 @@ class SeededRandom {
   }
 }
 
+// Map preset types
+export type MapPreset = "small" | "large" | "archipelago";
+
+/**
+ * Get map preset for a given level (cycles through presets)
+ */
+function getPresetForLevel(level: number): MapPreset {
+  const presets: MapPreset[] = ["small", "large", "archipelago"];
+  return presets[(level - 1) % presets.length];
+}
+
 /**
  * Generate a random island using noise-like algorithm
+ * Supports different presets for variety
  */
 function generateIsland(
   width: number,
   height: number,
-  rng: SeededRandom
+  rng: SeededRandom,
+  preset: MapPreset = "large"
 ): TileType[][] {
   const map = createEmptyMap(width, height, TileType.WATER);
+
+  // Adjust parameters based on preset
+  let baseRadiusX: number;
+  let baseRadiusY: number;
+  let numInlets: number;
+
+  switch (preset) {
+    case "small":
+      baseRadiusX = width * 0.25;
+      baseRadiusY = height * 0.25;
+      numInlets = 4;
+      break;
+    case "large":
+      baseRadiusX = width * 0.42;
+      baseRadiusY = height * 0.42;
+      numInlets = 10;
+      break;
+    case "archipelago":
+    default:
+      baseRadiusX = width * 0.35;
+      baseRadiusY = height * 0.35;
+      numInlets = 8;
+      break;
+  }
 
   // Define island center and size
   const centerX = width / 2;
   const centerY = height / 2;
-  const baseRadiusX = width * 0.35;
-  const baseRadiusY = height * 0.35;
 
   // Generate random offset points for irregular coastline
   const numPoints = 12;
@@ -113,7 +148,7 @@ function generateIsland(
   }
 
   // Add some coastal inlets and variation
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < numInlets; i++) {
     const inletX = rng.nextInt(6, width - 6);
     const inletY = rng.nextInt(6, height - 6);
     const inletSize = rng.nextInt(2, 4);
@@ -152,6 +187,97 @@ function generateIsland(
             }
           }
         }
+      }
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Generate an archipelago map with multiple smaller islands
+ */
+function generateArchipelago(
+  width: number,
+  height: number,
+  rng: SeededRandom
+): TileType[][] {
+  const map = createEmptyMap(width, height, TileType.WATER);
+
+  // Generate 3-5 islands at different positions
+  const numIslands = rng.nextInt(3, 5);
+  const islands: { cx: number; cy: number; rx: number; ry: number }[] = [];
+
+  // Generate island positions (spread across the map)
+  for (let i = 0; i < numIslands; i++) {
+    let cx: number, cy: number;
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    do {
+      cx = rng.nextInt(8, width - 8);
+      cy = rng.nextInt(8, height - 8);
+      attempts++;
+
+      // Check distance from other islands
+      let tooClose = false;
+      for (const island of islands) {
+        const dist = Math.sqrt(
+          Math.pow(cx - island.cx, 2) + Math.pow(cy - island.cy, 2)
+        );
+        if (dist < 12) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (!tooClose) break;
+    } while (attempts < maxAttempts);
+
+    // Island size varies
+    const rx = rng.nextInt(5, 9);
+    const ry = rng.nextInt(5, 9);
+    islands.push({ cx, cy, rx, ry });
+  }
+
+  // Generate each island
+  for (const island of islands) {
+    const numPoints = 8;
+    const radiusOffsets: number[] = [];
+    for (let i = 0; i < numPoints; i++) {
+      radiusOffsets.push(0.6 + rng.next() * 0.8);
+    }
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const dx = (x - island.cx) / island.rx;
+        const dy = (y - island.cy) / island.ry;
+
+        const angle = Math.atan2(dy, dx);
+        const normalizedAngle = (angle + Math.PI) / (2 * Math.PI);
+        const pointIndex = Math.floor(normalizedAngle * numPoints) % numPoints;
+        const nextPointIndex = (pointIndex + 1) % numPoints;
+        const t = (normalizedAngle * numPoints) % 1;
+        const radiusMultiplier =
+          radiusOffsets[pointIndex] * (1 - t) + radiusOffsets[nextPointIndex] * t;
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const noise = (rng.next() - 0.5) * 0.1;
+
+        if (distance < radiusMultiplier + noise) {
+          // Don't overwrite existing land at edges
+          if (x >= 2 && x < width - 2 && y >= 2 && y < height - 2) {
+            map[y][x] = TileType.LAND;
+          }
+        }
+      }
+    }
+  }
+
+  // Ensure water border
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x < 2 || x >= width - 2 || y < 2 || y >= height - 2) {
+        map[y][x] = TileType.WATER;
       }
     }
   }
@@ -273,25 +399,46 @@ function placeCastles(
 }
 
 /**
- * Generate a random map
+ * Generate a random map with optional preset
  */
-export function generateRandomMap(seed?: number): MapDefinition {
+export function generateRandomMap(seed?: number, preset?: MapPreset): MapDefinition {
   const actualSeed = seed ?? Date.now();
   const rng = new SeededRandom(actualSeed);
 
   const width = MAP_WIDTH;
   const height = MAP_HEIGHT;
 
-  // Generate island terrain
-  const tiles = generateIsland(width, height, rng);
+  // Generate terrain based on preset
+  let tiles: TileType[][];
+  let mapName: string;
+  let numCastles: number;
 
-  // Place castles (4-6 castles on larger map)
-  const numCastles = rng.nextInt(4, 6);
+  const actualPreset = preset ?? "large";
+
+  switch (actualPreset) {
+    case "small":
+      tiles = generateIsland(width, height, rng, "small");
+      mapName = "Small Island";
+      numCastles = rng.nextInt(3, 4);
+      break;
+    case "archipelago":
+      tiles = generateArchipelago(width, height, rng);
+      mapName = "Archipelago";
+      numCastles = rng.nextInt(4, 6);
+      break;
+    case "large":
+    default:
+      tiles = generateIsland(width, height, rng, "large");
+      mapName = "Large Island";
+      numCastles = rng.nextInt(5, 7);
+      break;
+  }
+
   const castles = placeCastles(tiles, width, height, numCastles, rng);
 
   return {
-    id: `random_${actualSeed}`,
-    name: "Random Island",
+    id: `${actualPreset}_${actualSeed}`,
+    name: mapName,
     width,
     height,
     tiles,
@@ -304,15 +451,16 @@ export function generateRandomMap(seed?: number): MapDefinition {
  * Level 1: Now generates a random map
  */
 export function getLevel1(): MapDefinition {
-  return generateRandomMap();
+  return generateRandomMap(undefined, "small");
 }
 
 /**
  * Get map by level number
+ * Cycles through presets: Level 1=small, Level 2=large, Level 3=archipelago, then repeats
  */
 export function getMapByLevel(level: number): MapDefinition {
-  // All levels now use random generation
-  return generateRandomMap();
+  const preset = getPresetForLevel(level);
+  return generateRandomMap(undefined, preset);
 }
 
 /**

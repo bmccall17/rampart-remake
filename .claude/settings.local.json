@@ -5,7 +5,8 @@
       "Bash(npx create-next-app@latest:*)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "Bash(bd ready:*)"
+      "Bash(bd ready:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

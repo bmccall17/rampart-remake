@@ -18,6 +18,8 @@ import { GameStateManager, GameState } from "./GameStateManager";
 import { GameOverScreen } from "../ui/GameOverScreen";
 import { LevelCompleteScreen } from "../ui/LevelCompleteScreen";
 import { ScorePopup } from "../ui/ScorePopup";
+import { SoundManager } from "./SoundManager";
+import { EffectsManager } from "../systems/EffectsManager";
 
 const sceneLogger = createLogger("MainScene", true);
 
@@ -37,6 +39,8 @@ export class MainScene extends Phaser.Scene {
   private gameOverScreen!: GameOverScreen;
   private levelCompleteScreen!: LevelCompleteScreen;
   private scorePopup!: ScorePopup;
+  private soundManager!: SoundManager;
+  private effectsManager!: EffectsManager;
   private castleSprites: Phaser.GameObjects.Graphics[] = [];
   private currentLevel: number = 1;
   private mapOffsetX: number = 0;
@@ -114,12 +118,35 @@ export class MainScene extends Phaser.Scene {
     this.gameOverScreen = new GameOverScreen(this);
     this.levelCompleteScreen = new LevelCompleteScreen(this);
     this.scorePopup = new ScorePopup(this);
+    this.soundManager = new SoundManager();
+    this.effectsManager = new EffectsManager(this, TILE_SIZE);
 
-    // Set up ship destroyed callback for score popups
+    // Set up ship destroyed callback for score popups, sound, effects, and screen shake
     this.combatSystem.setOnShipDestroyed((ship, points) => {
       const screenX = this.mapOffsetX + ship.position.x * TILE_SIZE;
       const screenY = this.mapOffsetY + ship.position.y * TILE_SIZE;
       this.scorePopup.show(screenX, screenY, points, "ship");
+      this.soundManager.playShipExplosion();
+      this.effectsManager.createShipExplosion(
+        Math.floor(ship.position.x),
+        Math.floor(ship.position.y),
+        this.mapOffsetX,
+        this.mapOffsetY
+      );
+      // Strong screen shake for ship destruction
+      this.cameras.main.shake(200, 0.008);
+    });
+
+    // Set up terrain impact callback for sound and effects
+    this.combatSystem.setOnTerrainImpact((gridX: number, gridY: number) => {
+      this.soundManager.playTerrainImpact();
+      this.effectsManager.createTerrainImpact(gridX, gridY, this.mapOffsetX, this.mapOffsetY);
+    });
+
+    // Set up water splash callback for effects
+    this.combatSystem.setOnWaterSplash((gridX: number, gridY: number) => {
+      this.soundManager.playWaterSplash();
+      this.effectsManager.createWaterSplash(gridX, gridY, this.mapOffsetX, this.mapOffsetY);
     });
 
     // Initialize Phase Manager
@@ -176,6 +203,9 @@ export class MainScene extends Phaser.Scene {
         toPhase: event.toPhase,
         timestamp: event.timestamp,
       });
+
+      // Play phase transition sound
+      this.soundManager.playPhaseTransition();
 
       // Show visual transition
       this.hud.showPhaseTransition(event.toPhase);
@@ -275,6 +305,7 @@ export class MainScene extends Phaser.Scene {
             sceneLogger.info("Action input - placing piece");
             if (this.buildSystem.placePiece()) {
               sceneLogger.info("Piece placed successfully");
+              this.soundManager.playPiecePlacement();
               this.tileRenderer.clear();
               this.renderMap();
               this.lastLogicAction = "Placed";
@@ -343,6 +374,7 @@ export class MainScene extends Phaser.Scene {
           sceneLogger.info("Left-click - placing piece");
           if (this.buildSystem.placePiece()) {
             sceneLogger.info("Piece placed successfully via left-click");
+            this.soundManager.playPiecePlacement();
             this.tileRenderer.clear();
             this.renderMap();
             this.lastLogicAction = "Placed (Mouse)";
@@ -358,7 +390,10 @@ export class MainScene extends Phaser.Scene {
       } else if (currentPhase === GamePhase.DEPLOY) {
         if (pointer.leftButtonDown()) {
           // Place cannon
-          this.deploySystem.placeCannon({ x: gridX, y: gridY });
+          const placed = this.deploySystem.placeCannon({ x: gridX, y: gridY });
+          if (placed) {
+            this.soundManager.playCannonPlacement();
+          }
         } else if (pointer.rightButtonDown()) {
           // Remove cannon
           this.deploySystem.removeCannon({ x: gridX, y: gridY });
@@ -380,9 +415,11 @@ export class MainScene extends Phaser.Scene {
       }
     });
 
-    // Track mouse down state for crosshair animation
+    // Track mouse down state for crosshair animation and resume audio
     this.input.on("pointerdown", () => {
       this.isMouseDown = true;
+      // Resume audio context on first user interaction (required by browsers)
+      this.soundManager.resume();
     });
     this.input.on("pointerup", () => {
       this.isMouseDown = false;
@@ -486,6 +523,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private showGameOver(): void {
+    this.soundManager.playDefeat();
     const stats = this.gameStateManager.getStats();
     const isNewHighScore = this.gameStateManager.updateHighScore();
     const highScore = this.gameStateManager.getHighScore();
@@ -500,6 +538,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private showLevelComplete(): void {
+    this.soundManager.playVictory();
     const breakdown = this.gameStateManager.getScoreBreakdown();
     const stats = this.gameStateManager.getStats();
     this.levelCompleteScreen.show(
@@ -674,6 +713,9 @@ export class MainScene extends Phaser.Scene {
 
     // Update score popups
     this.scorePopup.update();
+
+    // Update visual effects
+    this.effectsManager.update(delta);
 
     // Update HUD with current game stats
     const currentCannonCount = this.deploySystem.getCannons().length;
@@ -854,9 +896,12 @@ export class MainScene extends Phaser.Scene {
     // Try to fire cannons in order of distance (closest first)
     // Skip any that already have a projectile in flight
     for (const cannon of sortedCannons) {
-      const projectilesBefore = this.combatSystem.getProjectiles().length;
       const fired = this.combatSystem.fireCannon(cannon.id, targetPos);
       if (fired) {
+        // Play cannon fire sound and subtle screen shake
+        this.soundManager.playCannonFire();
+        this.cameras.main.shake(80, 0.003);
+
         // Get the newly created projectile ID
         const projectiles = this.combatSystem.getProjectiles();
         const newProjectile = projectiles[projectiles.length - 1];

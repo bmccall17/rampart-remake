@@ -5,6 +5,8 @@ import { createLogger } from "../logging/Logger";
 const logger = createLogger("CombatPhaseSystem", true);
 
 export type ShipDestroyedCallback = (ship: Ship, points: number) => void;
+export type TerrainImpactCallback = (gridX: number, gridY: number) => void;
+export type WaterSplashCallback = (gridX: number, gridY: number) => void;
 
 export class CombatPhaseSystem {
   private grid: Grid;
@@ -15,6 +17,8 @@ export class CombatPhaseSystem {
   private targetShipsPerWave: number = 5;
   private currentLevel: number = 1;
   private onShipDestroyed: ShipDestroyedCallback | null = null;
+  private onTerrainImpact: TerrainImpactCallback | null = null;
+  private onWaterSplash: WaterSplashCallback | null = null;
 
   constructor(grid: Grid) {
     this.grid = grid;
@@ -22,6 +26,14 @@ export class CombatPhaseSystem {
 
   setOnShipDestroyed(callback: ShipDestroyedCallback): void {
     this.onShipDestroyed = callback;
+  }
+
+  setOnTerrainImpact(callback: TerrainImpactCallback): void {
+    this.onTerrainImpact = callback;
+  }
+
+  setOnWaterSplash(callback: WaterSplashCallback): void {
+    this.onWaterSplash = callback;
   }
 
   /**
@@ -519,7 +531,7 @@ export class CombatPhaseSystem {
           }
         }
 
-        // If didn't hit a cannon, check for land/walls
+        // If didn't hit a cannon, check for land/walls/water
         if (!hitCannon) {
           const tile = this.grid.getTile(gridX, gridY);
           if (tile && (tile.type === TileType.LAND || tile.type === TileType.WALL)) {
@@ -527,6 +539,16 @@ export class CombatPhaseSystem {
             this.grid.setTile(gridX, gridY, TileType.CRATER);
             projectile.isActive = false;
             logger.event("CraterCreated", { position: { x: gridX, y: gridY } });
+            if (this.onTerrainImpact) {
+              this.onTerrainImpact(gridX, gridY);
+            }
+          } else if (tile && tile.type === TileType.WATER) {
+            // Water splash
+            projectile.isActive = false;
+            logger.event("WaterSplash", { position: { x: gridX, y: gridY } });
+            if (this.onWaterSplash) {
+              this.onWaterSplash(gridX, gridY);
+            }
           }
         }
       }
