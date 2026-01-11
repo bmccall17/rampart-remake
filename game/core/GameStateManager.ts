@@ -297,17 +297,38 @@ export class GameStateManager {
     return this.highScore;
   }
 
-  getScoreBreakdown(): {
+  getScoreBreakdown(combatStats?: {
+    scoutsDestroyed: number;
+    frigatesDestroyed: number;
+    destroyersDestroyed: number;
+    bossesDestroyed: number;
+    shotsFired: number;
+    shotsHit: number;
+    wallsDestroyed: number;
+    cratersCreated: number;
+  }): {
     shipsDestroyed: number;
     shipsPoints: number;
     territoriesHeld: number;
     territoriesPoints: number;
     levelBonus: number;
     totalScore: number;
+    scoutsDestroyed: number;
+    frigatesDestroyed: number;
+    destroyersDestroyed: number;
+    bossesDestroyed: number;
+    accuracy: number;
+    damageTaken: number;
   } {
     const shipsPoints = this.stats.shipsDestroyed * 100;
     const territoriesPoints = this.stats.territoriesHeld * 50;
     const levelBonus = this.stats.level * 200;
+
+    // Calculate accuracy (avoid division by zero)
+    const accuracy = combatStats && combatStats.shotsFired > 0
+      ? Math.round((combatStats.shotsHit / combatStats.shotsFired) * 100)
+      : 0;
+
     return {
       shipsDestroyed: this.stats.shipsDestroyed,
       shipsPoints,
@@ -315,6 +336,12 @@ export class GameStateManager {
       territoriesPoints,
       levelBonus,
       totalScore: this.stats.score,
+      scoutsDestroyed: combatStats?.scoutsDestroyed ?? 0,
+      frigatesDestroyed: combatStats?.frigatesDestroyed ?? 0,
+      destroyersDestroyed: combatStats?.destroyersDestroyed ?? 0,
+      bossesDestroyed: combatStats?.bossesDestroyed ?? 0,
+      accuracy,
+      damageTaken: (combatStats?.wallsDestroyed ?? 0) + (combatStats?.cratersCreated ?? 0),
     };
   }
 }

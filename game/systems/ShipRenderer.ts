@@ -94,6 +94,9 @@ export class ShipRenderer {
       case "destroyer":
         // Large, dark, menacing
         return { hullColor: 0x2f1810, sailColor: 0x990000, scale: 1.3 };
+      case "boss":
+        // Extra large, dark hull, bright red sails - unmistakable threat
+        return { hullColor: 0x1a0a05, sailColor: 0xff0000, scale: 1.8 };
       case "frigate":
       default:
         // Medium, standard brown

@@ -115,25 +115,43 @@ No environment variables are required for Phase 1. Future phases may require:
 ## Development Phases
 
 ### ✅ Phase 1: Foundation (Complete)
-- Next.js project setup
-- Phaser.js integration
-- Basic scene rendering
-- Logger implementation
-- Server-side logging API
-- Vercel deployment configuration
+- Next.js project setup, Phaser.js integration, logging, Vercel deployment
 
-### 🔄 Phase 2: Grid System (Next)
-- Tile rendering
-- Map data structure
-- Visual differentiation
+### ✅ Phase 2: Grid System (Complete)
+- Tile rendering, map data structure, visual differentiation
 
-### 📋 Upcoming Phases
-- Phase 3: Phase State Machine
-- Phase 4: Build Phase - Wall Placement
-- Phase 5: Deploy Phase - Cannon Placement
-- Phase 6: Combat Phase - Ships & Shooting
-- Phase 7: Complete Game Loop
-- Phase 8: Polish & Testing
+### ✅ Phase 3: Phase State Machine (Complete)
+- Game phase management (BUILD/DEPLOY/COMBAT/SCORING)
+
+### ✅ Phase 4: Build Phase (Complete)
+- Tetris-style wall placement with rotation
+
+### ✅ Phase 5: Deploy Phase (Complete)
+- Cannon placement in enclosed territories
+
+### ✅ Phase 6: Combat Phase (Complete)
+- Ships, shooting, projectiles, hit detection, crater creation
+
+### ✅ Phase 7: Game Loop Integration (Complete)
+- Lives system, scoring, game over/victory screens, restart/continue
+
+### ✅ Phase 8: Polish & Advanced Features (Complete)
+- Sound effects (Web Audio API), visual effects (particles)
+- Screen shake, level progression, multiple map presets
+- Phase speedup when objectives complete
+
+### 🔄 Phase 9: Ship Variety & Combat AI (Current)
+- Differentiated ship types (Scout/Frigate/Destroyer)
+- Wave composition system with level scaling
+- Smarter ship AI targeting
+- Boss ship encounters
+- Enhanced combat statistics
+
+### 📋 Future Phases
+- Phase 10: Local Multiplayer
+- Phase 11: Power-ups & Special Abilities
+- Phase 12: Mobile & Accessibility
+- Phase 13: Online Features (Leaderboards, Achievements)
 
 ## Game Design Documents
 

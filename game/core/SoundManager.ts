@@ -81,10 +81,62 @@ export class SoundManager {
   }
 
   /**
-   * Ship explosion sound - rumbling explosion with multiple layers
+   * Critical hit sound - satisfying high-pitched impact with reverb
    */
-  playShipExplosion(): void {
+  playCriticalHit(): void {
     if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    const now = this.audioContext.currentTime;
+
+    // High-pitched impact "ping"
+    const osc1 = this.audioContext.createOscillator();
+    const gain1 = this.audioContext.createGain();
+
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(1200, now);
+    osc1.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+
+    gain1.gain.setValueAtTime(0.5, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + 0.2);
+
+    // Secondary harmonic for "crunch"
+    const osc2 = this.audioContext.createOscillator();
+    const gain2 = this.audioContext.createGain();
+
+    osc2.type = "square";
+    osc2.frequency.setValueAtTime(600, now);
+    osc2.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+
+    gain2.gain.setValueAtTime(0.25, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc2.start(now);
+    osc2.stop(now + 0.12);
+
+    // Quick noise burst for punch
+    this.playNoiseShot(0.06, 0.3);
+  }
+
+  /**
+   * Ship explosion sound - rumbling explosion with multiple layers
+   * Pitch varies by ship type: scouts higher, destroyers lower
+   */
+  playShipExplosion(shipType: string = "frigate"): void {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    // Pitch multiplier based on ship type (higher = smaller ship)
+    const pitchMult = shipType === "scout" ? 1.5 : shipType === "destroyer" ? 0.7 : 1.0;
+    const volumeMult = shipType === "scout" ? 0.7 : shipType === "destroyer" ? 1.2 : 1.0;
+    const durationMult = shipType === "scout" ? 0.7 : shipType === "destroyer" ? 1.3 : 1.0;
 
     const now = this.audioContext.currentTime;
 
@@ -93,37 +145,139 @@ export class SoundManager {
     const gain1 = this.audioContext.createGain();
 
     osc1.type = "sawtooth";
-    osc1.frequency.setValueAtTime(80, now);
-    osc1.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+    osc1.frequency.setValueAtTime(80 * pitchMult, now);
+    osc1.frequency.exponentialRampToValueAtTime(30 * pitchMult, now + 0.4 * durationMult);
 
-    gain1.gain.setValueAtTime(0.5, now);
-    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    gain1.gain.setValueAtTime(0.5 * volumeMult, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.5 * durationMult);
 
     osc1.connect(gain1);
     gain1.connect(this.masterGain);
 
     osc1.start(now);
-    osc1.stop(now + 0.5);
+    osc1.stop(now + 0.5 * durationMult);
 
     // Mid-range crackle
     const osc2 = this.audioContext.createOscillator();
     const gain2 = this.audioContext.createGain();
 
     osc2.type = "square";
-    osc2.frequency.setValueAtTime(200, now);
-    osc2.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+    osc2.frequency.setValueAtTime(200 * pitchMult, now);
+    osc2.frequency.exponentialRampToValueAtTime(60 * pitchMult, now + 0.3 * durationMult);
 
-    gain2.gain.setValueAtTime(0.3, now);
-    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+    gain2.gain.setValueAtTime(0.3 * volumeMult, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.35 * durationMult);
 
     osc2.connect(gain2);
     gain2.connect(this.masterGain);
 
     osc2.start(now);
-    osc2.stop(now + 0.35);
+    osc2.stop(now + 0.35 * durationMult);
 
     // Extended noise for debris
-    this.playNoiseShot(0.4, 0.5);
+    this.playNoiseShot(0.4 * durationMult, 0.5 * volumeMult);
+  }
+
+  /**
+   * Ship hit sound - wood crashing/cracking impact
+   * Played when player cannonball hits a ship but doesn't destroy it
+   */
+  playShipHit(): void {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    const now = this.audioContext.currentTime;
+
+    // Wood cracking sound (high-frequency attack)
+    const osc1 = this.audioContext.createOscillator();
+    const gain1 = this.audioContext.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(400, now);
+    osc1.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+
+    gain1.gain.setValueAtTime(0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + 0.15);
+
+    // Low thud component
+    const osc2 = this.audioContext.createOscillator();
+    const gain2 = this.audioContext.createGain();
+
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(150, now);
+    osc2.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+
+    gain2.gain.setValueAtTime(0.35, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc2.start(now);
+    osc2.stop(now + 0.15);
+
+    // Short noise for impact texture
+    this.playNoiseShot(0.08, 0.3);
+  }
+
+  /**
+   * Wall fire sound - crackling flames with stone crumble
+   */
+  playWallFire(): void {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    const now = this.audioContext.currentTime;
+
+    // Stone crumble (low)
+    const osc1 = this.audioContext.createOscillator();
+    const gain1 = this.audioContext.createGain();
+
+    osc1.type = "triangle";
+    osc1.frequency.setValueAtTime(180, now);
+    osc1.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+
+    gain1.gain.setValueAtTime(0.45, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    // Fire crackle (noise with filter)
+    const bufferSize = this.audioContext.sampleRate * 0.4;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      // Create crackling pattern with random bursts
+      const burst = Math.random() > 0.9 ? 1.5 : 1;
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.6)) * burst;
+    }
+
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 800;
+    filter.Q.value = 1;
+
+    const gain2 = this.audioContext.createGain();
+    gain2.gain.setValueAtTime(0.35, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+    source.connect(filter);
+    filter.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    source.start(now);
   }
 
   /**
@@ -346,6 +500,123 @@ export class SoundManager {
       osc.start(noteStart);
       osc.stop(noteStart + noteDuration);
     });
+  }
+
+  /**
+   * Boss spawn sound - ominous horn blast
+   */
+  playBossSpawn(): void {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    const now = this.audioContext.currentTime;
+
+    // Deep horn blast
+    const osc1 = this.audioContext.createOscillator();
+    const gain1 = this.audioContext.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(80, now);
+    osc1.frequency.linearRampToValueAtTime(100, now + 0.3);
+    osc1.frequency.linearRampToValueAtTime(80, now + 0.8);
+
+    gain1.gain.setValueAtTime(0, now);
+    gain1.gain.linearRampToValueAtTime(0.5, now + 0.1);
+    gain1.gain.setValueAtTime(0.5, now + 0.5);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + 1.0);
+
+    // Second harmonic for fullness
+    const osc2 = this.audioContext.createOscillator();
+    const gain2 = this.audioContext.createGain();
+
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(160, now);
+    osc2.frequency.linearRampToValueAtTime(200, now + 0.3);
+    osc2.frequency.linearRampToValueAtTime(160, now + 0.8);
+
+    gain2.gain.setValueAtTime(0, now);
+    gain2.gain.linearRampToValueAtTime(0.25, now + 0.1);
+    gain2.gain.setValueAtTime(0.25, now + 0.5);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc2.start(now);
+    osc2.stop(now + 1.0);
+  }
+
+  /**
+   * Boss destruction sound - massive explosion with reverb
+   */
+  playBossExplosion(): void {
+    if (!this.enabled || !this.audioContext || !this.masterGain) return;
+
+    const now = this.audioContext.currentTime;
+
+    // Very low rumble
+    const osc1 = this.audioContext.createOscillator();
+    const gain1 = this.audioContext.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(60, now);
+    osc1.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+
+    gain1.gain.setValueAtTime(0.7, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+
+    osc1.connect(gain1);
+    gain1.connect(this.masterGain);
+
+    osc1.start(now);
+    osc1.stop(now + 1.0);
+
+    // Mid crackle
+    const osc2 = this.audioContext.createOscillator();
+    const gain2 = this.audioContext.createGain();
+
+    osc2.type = "square";
+    osc2.frequency.setValueAtTime(300, now);
+    osc2.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+
+    gain2.gain.setValueAtTime(0.4, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+    osc2.connect(gain2);
+    gain2.connect(this.masterGain);
+
+    osc2.start(now);
+    osc2.stop(now + 0.6);
+
+    // Extended noise debris
+    this.playNoiseShot(0.8, 0.6);
+
+    // Secondary explosion echo
+    setTimeout(() => {
+      if (!this.audioContext || !this.masterGain) return;
+      const echoNow = this.audioContext.currentTime;
+
+      const echoOsc = this.audioContext.createOscillator();
+      const echoGain = this.audioContext.createGain();
+
+      echoOsc.type = "triangle";
+      echoOsc.frequency.setValueAtTime(100, echoNow);
+      echoOsc.frequency.exponentialRampToValueAtTime(30, echoNow + 0.4);
+
+      echoGain.gain.setValueAtTime(0.3, echoNow);
+      echoGain.gain.exponentialRampToValueAtTime(0.01, echoNow + 0.5);
+
+      echoOsc.connect(echoGain);
+      echoGain.connect(this.masterGain);
+
+      echoOsc.start(echoNow);
+      echoOsc.stop(echoNow + 0.5);
+    }, 200);
   }
 
   /**

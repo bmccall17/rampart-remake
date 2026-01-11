@@ -121,3 +121,315 @@ Thread: https://ampcode.com/threads/T-019b9dc5-a327-7762-9fce-ed3f9d8178ae
 ## ALL STORIES COMPLETE
 Phase 8 - Polish & Advanced Features is complete.
 All user stories US-001 through US-007 now pass.
+
+---
+
+# Phase 8 Summary
+
+**Features Delivered:**
+- Level progression with scaling difficulty (ship count +1/level, speed +5%/level)
+- Score display improvements (popups, breakdown screens, high score persistence)
+- Combat sounds via Web Audio API (cannon fire, explosions, terrain impacts)
+- UI/phase sounds (transitions, placements, victory/defeat jingles)
+- Visual effects via EffectsManager (ship explosions, terrain impacts, water splashes)
+- Screen shake effects (cannon fire subtle, ship explosion stronger)
+- Multiple map presets (small island, large island, archipelago) cycling per level
+- Phase speedup QoL (timer accelerates when all cannons placed or all ships killed)
+
+**Key New Files:**
+- game/core/SoundManager.ts - Programmatic audio generator
+- game/systems/EffectsManager.ts - Particle-based visual effects
+
+**Key Modified Files:**
+- game/core/PhaseManager.ts - Added speedUpPhase() method
+- game/core/MainScene.ts - Integrated all polish systems
+- game/systems/CombatPhaseSystem.ts - Added terrain/water splash callbacks
+- game/grid/MapData.ts - Added map presets and getMapByLevel()
+
+---
+
+# Phase 9 - Ship Variety & Combat AI
+Started: 2026-01-10
+
+## User Stories
+- US-001: Differentiated Ship Types (Scout/Frigate/Destroyer with unique stats)
+- US-002: Wave Composition System (level-based wave variety)
+- US-003: Smarter Ship AI (target cannons, spread out, avoid craters)
+- US-004: Boss Ship Encounters (every 5 levels, high HP, multi-fire)
+- US-005: Ship Destruction Effects (type-specific explosions, sinking animation)
+- US-006: Combat Statistics Display (per-type kills, accuracy, damage taken)
+
+## Future Phases Roadmap
+- Phase 10: Local Multiplayer (split keyboard, PvP combat)
+- Phase 11: Power-ups & Special Abilities (repairs, rapid fire, shields)
+- Phase 12: Mobile & Accessibility (touch controls, color-blind modes)
+- Phase 13: Online Features (leaderboards, achievements, cloud save)
+
+---
+
+## 2026-01-10 - US-001 (Differentiated Ship Types + Critical Hits)
+
+**Ship Stats Config:**
+```typescript
+SHIP_STATS_CONFIG = {
+  scout:    { health: 2, speed: 1.0, fireRate: 0.004, damage: 1, points: 75  },
+  frigate:  { health: 3, speed: 0.5, fireRate: 0.003, damage: 1, points: 100 },
+  destroyer:{ health: 5, speed: 0.3, fireRate: 0.002, damage: 2, points: 150 },
+}
+```
+
+**Visual Differentiation (ShipRenderer):**
+- Scout: Light brown hull (0xa0522d), yellow sail, 0.8x scale
+- Frigate: Standard brown hull (0x8b4513), white sail, 1.0x scale
+- Destroyer: Dark hull (0x2f1810), red sail, 1.3x scale
+
+**Critical Hit System:**
+- Radius: 0.25 tiles from ship center
+- Damage multiplier: 2x
+- Bonus points: +25
+- Sound: playCriticalHit() - high-pitched ping with crunch
+- Visual: createCriticalHit() - white/yellow flash ring + bright sparks
+- Screen shake: 0.006 intensity on hit, 0.012 on kill
+
+**Files Modified:**
+- game/systems/CombatPhaseSystem.ts:
+  - Added SHIP_STATS_CONFIG, CRITICAL_HIT_CONFIG exports
+  - Added ShipHitCallback type and setOnShipHit() setter
+  - Updated checkCollisions() with critical hit detection
+  - Updated getShipStats() to use config
+- game/core/SoundManager.ts:
+  - Added playCriticalHit() - high-pitched impact sound
+- game/systems/EffectsManager.ts:
+  - Added createCriticalHit() - white/yellow flash particles
+- game/core/MainScene.ts:
+  - Added setOnShipHit callback for critical hit feedback
+  - Updated setOnShipDestroyed to show "CRITICAL!" label
+
+**Learnings:**
+- Critical hit detection uses sub-tile precision (float comparison vs tile grid)
+- Ship type-specific points add strategic depth (focus destroyers for more points)
+- Multiple callbacks (onShipHit + onShipDestroyed) allow layered feedback
+
+---
+
+## 2026-01-10 - US-002 (Wave Composition System)
+
+**Wave Config Structure:**
+```typescript
+WAVE_COMPOSITION_CONFIG = {
+  early: { weights: [0.6, 0.4, 0],    minShips: 5,  maxShips: 7  },  // L1-2
+  mid:   { weights: [0.35, 0.4, 0.25], minShips: 7,  maxShips: 10 },  // L3-4
+  late:  { weights: [0.25, 0.4, 0.35], minShips: 10, maxShips: 15 },  // L5+
+}
+```
+
+**Level-Based Changes:**
+- Levels 1-2 (early): Scouts + Frigates only, 5-7 ships
+- Levels 3-4 (mid): Introduces Destroyers (25%), 7-10 ships
+- Levels 5+ (late): Heavy Destroyer presence (35%), 10-15 ships
+- Ship count scales: minShips + floor((level-1)/2), capped at maxShips
+
+**Files Modified:**
+- game/systems/CombatPhaseSystem.ts:
+  - Added WaveConfig interface and WAVE_COMPOSITION_CONFIG export
+  - Added getWaveConfig() method for tier selection
+  - Updated setLevel() to use wave config for ship count
+  - Updated getRandomShipType() to use level-based weights
+
+**Learnings:**
+- Weighted random: multiply roll by totalWeight, then check cumulative thresholds
+- Config export allows UI/debug tools to display current wave settings
+- Level tiers (early/mid/late) simpler than per-level configs
+
+---
+
+## 2026-01-10 - US-003 (Smarter Ship AI)
+
+**Ship Spread System:**
+- calculateSpreadOffset(): Ships get offset based on index, spreading -8 to +8 tiles
+- generateShipPath() now accepts spreadOffset parameter
+- Alternates X/Y offsets for 2D spread pattern
+
+**Crater Avoidance:**
+- countCratersNear(): Counts craters within radius of a position
+- Land targets filtered: skip if 3+ craters within 2-tile radius
+- Ultimate fallback: any land tile if all filtered out
+
+**Destroyer Castle Focus:**
+- Destroyers check castles first (60% chance) before cannons
+- Other ships still prioritize cannons > walls > castles
+- Makes destroyers feel strategically distinct
+
+**Targeting Priority Summary:**
+- Destroyer: Castle (60%) > Cannon (50%) > Wall (40%) > Land
+- Scout/Frigate: Cannon (50%) > Wall (40%) > Castle (30%) > Land
+- All: 70% smart targeting, 30% random for unpredictability
+
+**Files Modified:**
+- game/systems/CombatPhaseSystem.ts:
+  - Added calculateSpreadOffset() for ship spread
+  - Updated generateShipPath() with spreadOffset parameter
+  - Added countCratersNear() for crater detection
+  - Enhanced findSmartTarget() with crater avoidance and destroyer focus
+
+**Learnings:**
+- Path offset approach simpler than dynamic collision avoidance
+- Crater check radius of 2 tiles = 5x5 area = good balance
+- Destroyer castle priority adds tactical depth
+
+---
+
+## 2026-01-10 - US-004 (Boss Ship Encounters)
+
+**Boss Ship Stats:**
+```typescript
+boss: { health: 15, speed: 0.2, fireRate: 0.006, damage: 3, points: 500 }
+```
+
+**Boss Mechanics:**
+- Spawns every 5 levels (level % 5 === 0)
+- Fires 3 projectiles in spread pattern (22.5° angle)
+- Extra large visual (1.8x scale, bright red sails)
+- Special sounds: playBossSpawn() horn blast, playBossExplosion() massive rumble
+- Extra screen shake on destruction (0.02 intensity, 400ms)
+
+**Files Modified:**
+- game/types/index.ts: Added "boss" to ShipType union
+- game/systems/CombatPhaseSystem.ts:
+  - Added boss stats to SHIP_STATS_CONFIG
+  - Added BossSpawnCallback type and setOnBossSpawn()
+  - Added isBossLevel() method
+  - Updated spawnShipWave() to spawn boss on boss levels
+  - Updated shipFireProjectile() for 3-projectile spread
+- game/systems/ShipRenderer.ts: Added boss visual style (1.8x, dark hull, red sail)
+- game/core/SoundManager.ts: Added playBossSpawn() and playBossExplosion()
+- game/core/MainScene.ts: Integrated boss callbacks for sounds/effects
+
+**Learnings:**
+- Multi-projectile spread uses angle offset from base direction
+- Boss adds strategic urgency - focus fire required
+- Horn blast sound (sawtooth + triangle harmonics) creates ominous feel
+
+---
+
+## 2026-01-10 - US-005 (Ship Destruction Effects)
+
+**Type-Specific Visual Effects:**
+```typescript
+getExplosionScale():
+  scout:     { particleCount: 12, sparkCount: 6,  sizeMult: 0.7, lifeMult: 0.7 }
+  frigate:   { particleCount: 20, sparkCount: 10, sizeMult: 1.0, lifeMult: 1.0 }
+  destroyer: { particleCount: 30, sparkCount: 15, sizeMult: 1.3, lifeMult: 1.2 }
+  boss:      { particleCount: 50, sparkCount: 30, sizeMult: 1.8, lifeMult: 1.5 }
+```
+
+**Debris System:**
+- Destroyers and bosses spawn wood debris particles (brown colors)
+- Debris has upward velocity then falls with gravity
+- Boss has secondary delayed explosion (150ms)
+
+**Sound Pitch Variation:**
+- playShipExplosion(shipType) now accepts ship type
+- Scout: 1.5x pitch, 0.7x duration, 0.7x volume
+- Destroyer: 0.7x pitch, 1.3x duration, 1.2x volume
+- Creates sense of mass difference
+
+**Files Modified:**
+- game/systems/EffectsManager.ts:
+  - Added getExplosionScale() method
+  - Updated createShipExplosion() with shipType parameter
+  - Added createSecondaryExplosion() for boss
+  - Added debris particles for larger ships
+- game/core/SoundManager.ts:
+  - Updated playShipExplosion() with shipType parameter
+  - Pitch/volume/duration varies by ship size
+- game/core/MainScene.ts:
+  - Pass shipType to explosion effect and sound
+
+**Learnings:**
+- Explosion scale multipliers create clear visual hierarchy
+- Debris with gravity adds physicality
+- Delayed secondary explosion for boss creates satisfying sequence
+
+---
+
+## 2026-01-10 - Player Cannonball Feedback (User Request)
+
+**Player Projectile Enhancements:**
+- Player projectiles now use arc trajectory (progress < 0.95 check)
+- Added onPlayerWaterSplash callback for water misses
+- Added playShipHit() sound for non-critical hits (wood crash)
+
+**Wall Fire Effect (User Request):**
+- Added onWallDestroyed callback (separate from terrain impact)
+- createWallFire() effect: 20 flame particles, 12 sparks, 8 stone debris
+- playWallFire() sound: stone crumble + crackling fire noise
+
+**Files Modified:**
+- game/systems/CombatPhaseSystem.ts:
+  - Added PlayerWaterSplashCallback and WallDestroyedCallback types
+  - Separated wall hit from land hit in collision logic
+  - Player projectiles now check water splash on miss
+- game/core/SoundManager.ts:
+  - Added playShipHit() - wood crashing impact
+  - Added playWallFire() - crackling flames + stone crumble
+- game/systems/EffectsManager.ts:
+  - Added createWallFire() - flames rising, sparks, debris
+- game/core/MainScene.ts:
+  - Added setOnPlayerWaterSplash callback
+  - Added setOnWallDestroyed callback
+  - Updated setOnShipHit to play crash sound on non-critical hits
+
+---
+
+## 2026-01-10 - US-006 (Combat Statistics Display)
+
+**CombatStats Interface:**
+```typescript
+interface CombatStats {
+  scoutsDestroyed, frigatesDestroyed, destroyersDestroyed, bossesDestroyed,
+  shotsFired, shotsHit, wallsDestroyed, cratersCreated
+}
+```
+
+**LevelCompleteScreen Enhanced:**
+- Ship breakdown by type (Scouts: X, Frigates: Y, Destroyers: Z)
+- Accuracy percentage with color coding (green >75%, yellow 50-75%, red <50%)
+- Damage taken (walls + craters) with color coding
+
+**Files Modified:**
+- game/systems/CombatPhaseSystem.ts:
+  - Added CombatStats interface and tracking
+  - Added getCombatStats() and resetCombatStats() methods
+  - Track: shotsFired in fireCannon, shotsHit on ship hit, ship kills by type
+- game/core/GameStateManager.ts:
+  - Updated getScoreBreakdown() to accept combatStats parameter
+  - Calculate accuracy percentage and damage taken
+- game/ui/LevelCompleteScreen.ts:
+  - Extended ScoreBreakdown interface with combat stats
+  - Added ship type breakdown, accuracy, damage taken display
+  - Increased panel height to 520px
+- game/core/MainScene.ts:
+  - Pass combatSystem.getCombatStats() to getScoreBreakdown()
+
+**Learnings:**
+- Color-coded stats (green/yellow/red) provide quick performance feedback
+- Ship type breakdown adds strategic value to statistics
+
+---
+
+# Phase 9 Summary (In Progress)
+
+**Stories Completed:**
+- US-001: Differentiated Ship Types + Critical Hits
+- US-002: Wave Composition System
+- US-003: Smarter Ship AI (spread, crater avoidance, destroyer castle focus)
+- US-004: Boss Ship Encounters (every 5 levels, 3-projectile spread)
+- US-005: Ship Destruction Effects (type-specific size, pitch, debris)
+- US-006: Combat Statistics Display (per-type kills, accuracy, damage taken)
+
+**Additional Features (User Requests):**
+- Player cannonball water splash and ship hit sounds
+- Wall fire effect with flames and debris
+
+---

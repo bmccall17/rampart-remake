@@ -8,6 +8,13 @@ export interface ScoreBreakdown {
   territoriesPoints: number;
   levelBonus: number;
   totalScore: number;
+  // Detailed combat stats
+  scoutsDestroyed: number;
+  frigatesDestroyed: number;
+  destroyersDestroyed: number;
+  bossesDestroyed: number;
+  accuracy: number; // 0-100 percentage
+  damageTaken: number; // walls + craters from enemy fire
 }
 
 export class LevelCompleteScreen {
@@ -33,7 +40,7 @@ export class LevelCompleteScreen {
     );
 
     const panelWidth = 500;
-    const panelHeight = 450;
+    const panelHeight = 520;
     const panel = this.scene.add.rectangle(
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2,
@@ -116,11 +123,39 @@ export class LevelCompleteScreen {
 
     let currentY = statsY + lineHeight * 1.5;
 
+    // Ship destruction breakdown by type
+    const shipTypes: string[] = [];
+    if (breakdown.scoutsDestroyed > 0) shipTypes.push(`Scouts: ${breakdown.scoutsDestroyed}`);
+    if (breakdown.frigatesDestroyed > 0) shipTypes.push(`Frigates: ${breakdown.frigatesDestroyed}`);
+    if (breakdown.destroyersDestroyed > 0) shipTypes.push(`Destroyers: ${breakdown.destroyersDestroyed}`);
+    if (breakdown.bossesDestroyed > 0) shipTypes.push(`Bosses: ${breakdown.bossesDestroyed}`);
+
     createStatLine(
       `Ships Destroyed (${breakdown.shipsDestroyed})`,
       `+${breakdown.shipsPoints}`,
       currentY
     );
+    currentY += lineHeight * 0.7;
+
+    // Show ship type breakdown in smaller text
+    if (shipTypes.length > 0) {
+      const typeText = this.scene.add.text(
+        GAME_WIDTH / 2,
+        currentY,
+        shipTypes.join(", "),
+        {
+          fontSize: "14px",
+          color: "#888888",
+        }
+      );
+      typeText.setOrigin(0.5);
+      elements.push(typeText);
+    }
+    currentY += lineHeight * 0.8;
+
+    // Accuracy
+    const accuracyColor = breakdown.accuracy >= 75 ? "#44ff44" : breakdown.accuracy >= 50 ? "#ffff00" : "#ff6666";
+    createStatLine(`Accuracy`, `${breakdown.accuracy}%`, currentY, accuracyColor);
     currentY += lineHeight;
 
     createStatLine(
@@ -128,6 +163,11 @@ export class LevelCompleteScreen {
       `+${breakdown.territoriesPoints}`,
       currentY
     );
+    currentY += lineHeight;
+
+    // Damage taken
+    const damageColor = breakdown.damageTaken <= 5 ? "#44ff44" : breakdown.damageTaken <= 15 ? "#ffff00" : "#ff6666";
+    createStatLine(`Damage Taken`, `${breakdown.damageTaken} tiles`, currentY, damageColor);
     currentY += lineHeight;
 
     createStatLine(`Level Bonus`, `+${breakdown.levelBonus}`, currentY);

@@ -1,110 +1,164 @@
 {
   "project": "Rampart Remake",
-  "branchName": "ralph/phase-8-polish",
-  "description": "Phase 8 - Polish & Advanced Features: Sound effects, visual polish, level progression, and score improvements",
+  "branchName": "ralph/phase-9-ship-variety",
+  "description": "Phase 9 - Ship Variety & Combat AI: Differentiated ship types with unique behaviors, smarter AI, and boss encounters",
+  "completedPhases": [
+    {
+      "phase": 1,
+      "name": "Foundation",
+      "description": "Next.js + Phaser setup, logging, deployment"
+    },
+    {
+      "phase": 2,
+      "name": "Grid System",
+      "description": "Tile rendering, map data structure"
+    },
+    {
+      "phase": 3,
+      "name": "Phase State Machine",
+      "description": "Game phase management (BUILD/DEPLOY/COMBAT/SCORING)"
+    },
+    {
+      "phase": 4,
+      "name": "Build Phase",
+      "description": "Tetris-style wall placement"
+    },
+    {
+      "phase": 5,
+      "name": "Deploy Phase",
+      "description": "Cannon placement in enclosed territories"
+    },
+    {
+      "phase": 6,
+      "name": "Combat Phase",
+      "description": "Ships, shooting, projectiles, hit detection"
+    },
+    {
+      "phase": 7,
+      "name": "Game Loop Integration",
+      "description": "Lives, scoring, game over/victory screens"
+    },
+    {
+      "phase": 8,
+      "name": "Polish & Advanced Features",
+      "description": "Sound effects (Web Audio API), visual effects (particles), screen shake, level progression, multiple map presets"
+    }
+  ],
   "userStories": [
     {
       "id": "US-001",
-      "title": "Level Progression System",
-      "description": "As a player, I want increasing difficulty as I progress so the game stays challenging.",
+      "title": "Differentiated Ship Types",
+      "description": "As a player, I want different ship types with distinct behaviors so combat feels varied and strategic.",
       "acceptanceCriteria": [
-        "Each level spawns more ships (5 base + level number)",
-        "Ship speed increases slightly each level (+5% per level)",
-        "Build phase time decreases slightly each level (30s base, -1s per level, min 20s)",
-        "Level number displayed in HUD",
+        "Scout ships: Fast (1.0 speed), low HP (2), low damage, spawns first",
+        "Frigate ships: Medium speed (0.5), medium HP (3), medium damage, standard enemy",
+        "Destroyer ships: Slow (0.3 speed), high HP (5), high damage, appears in later waves",
+        "Ship type visually distinct (different sizes, colors, sail patterns)",
+        "Ship stats defined in a config object for easy balancing",
         "npm run build passes without errors"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Use GameStateManager.level to scale difficulty in CombatPhaseSystem and PhaseStateManager"
+      "notes": "SHIP_STATS_CONFIG exported from CombatPhaseSystem.ts. Added critical hit system: hits within 0.25 tiles of ship center deal 2x damage + 25 bonus points. Includes visual effect (white/yellow flash) and sound."
     },
     {
       "id": "US-002",
-      "title": "Score Display Improvements",
-      "description": "As a player, I want to see a detailed score breakdown at the end of each round.",
+      "title": "Wave Composition System",
+      "description": "As a player, I want enemy waves to have varied compositions based on level so difficulty feels progressive.",
       "acceptanceCriteria": [
-        "End-of-round score breakdown shows: ships destroyed, territories held, bonus points",
-        "Score popup appears briefly when points are earned during gameplay",
-        "High score saved to localStorage and displayed on game over screen",
+        "Level 1-2: Scouts and Frigates only",
+        "Level 3-4: Add Destroyers to the mix",
+        "Level 5+: Larger waves with all ship types",
+        "Wave composition defined in config for easy tuning",
+        "Total wave difficulty scales with level (weighted by ship HP)",
         "npm run build passes without errors"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "ScorePopup, LevelCompleteScreen, and GameOverScreen all implemented with full integration"
+      "notes": "WAVE_COMPOSITION_CONFIG exported from CombatPhaseSystem.ts. Three tiers: early (L1-2, scouts+frigates), mid (L3-4, adds destroyers), late (L5+, heavy destroyers). Ship count scales with level within tier min/max."
     },
     {
       "id": "US-003",
-      "title": "Sound Effects - Combat",
-      "description": "As a player, I want audio feedback during combat to make the game more immersive.",
+      "title": "Smarter Ship AI",
+      "description": "As a player, I want ships to behave more intelligently so combat is more challenging.",
       "acceptanceCriteria": [
-        "Cannon fire sound plays when player fires",
-        "Explosion sound plays when ship is destroyed",
-        "Impact sound plays when cannonball hits terrain",
-        "Sounds use Web Audio API or Phaser audio",
+        "Ships prioritize targeting cannons over random land tiles",
+        "Ships spread out rather than clustering",
+        "Ships avoid areas with many craters (already damaged)",
+        "Destroyers focus fire on castle areas",
         "npm run build passes without errors"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "SoundManager.ts uses Web Audio API for programmatic retro-style sounds"
+      "notes": "Ship spread via calculateSpreadOffset() in path generation. Crater avoidance filters land targets with 3+ craters nearby. Destroyers have 60% castle priority. Smart targeting 70%/random 30% mix."
     },
     {
       "id": "US-004",
-      "title": "Sound Effects - UI and Phases",
-      "description": "As a player, I want audio cues for phase transitions and UI actions.",
+      "title": "Boss Ship Encounters",
+      "description": "As a player, I want occasional boss ships that require focused fire to defeat.",
       "acceptanceCriteria": [
-        "Phase transition sound plays when phase changes",
-        "Piece placement sound plays when wall piece is placed",
-        "Cannon placement sound plays when cannon is deployed",
-        "Victory jingle plays on level complete",
-        "Defeat sound plays on game over",
+        "Boss ship appears every 5 levels",
+        "Boss has high HP (15), slow speed (0.2), fires multiple projectiles",
+        "Boss is visually larger and distinct (red sails, larger hull)",
+        "Boss destruction awards bonus points (500)",
+        "Boss plays unique sound on spawn and destruction",
         "npm run build passes without errors"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "All sounds integrated via SoundManager - rising tones, clicks, metallic clunks, and musical jingles"
+      "notes": "Boss spawns on level % 5 === 0. Stats: 15 HP, 0.2 speed, 3 damage, 500 points. Fires 3-projectile spread. Visual: 1.8x scale, bright red sails. Sounds: playBossSpawn() horn, playBossExplosion() massive rumble."
     },
     {
       "id": "US-005",
-      "title": "Visual Effects - Explosions",
-      "description": "As a player, I want visual explosion effects when ships are destroyed and projectiles hit.",
+      "title": "Ship Destruction Effects",
+      "description": "As a player, I want satisfying feedback when ships are destroyed.",
       "acceptanceCriteria": [
-        "Particle explosion appears when ship is destroyed (orange/red particles)",
-        "Small impact effect appears when cannonball hits terrain",
-        "Water splash effect appears when cannonball misses (hits water)",
-        "Effects are performant (no frame drops)",
+        "Different explosion sizes based on ship type (bigger for destroyers)",
+        "Sinking animation (ship tilts and fades)",
+        "Debris particles fall into water",
+        "Sound pitch varies by ship size",
         "npm run build passes without errors"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "EffectsManager.ts provides simple particle-based effects with gravity and alpha fade"
+      "notes": "createShipExplosion() accepts shipType param. Scout=small/high-pitch, Destroyer=large/low-pitch, Boss=massive with secondary explosion. Debris particles for destroyers/boss fall with gravity. Sinking animation deferred (explosion covers destruction)."
     },
     {
       "id": "US-006",
-      "title": "Screen Shake Effect",
-      "description": "As a player, I want screen shake on big impacts to add punch to the combat.",
+      "title": "Combat Statistics Display",
+      "description": "As a player, I want to see combat stats at the end of each round.",
       "acceptanceCriteria": [
-        "Camera shakes briefly when cannon fires",
-        "Stronger shake when ship is destroyed",
-        "Shake is subtle and doesn't cause motion sickness",
+        "Show ships destroyed by type (e.g., 'Scouts: 3, Frigates: 2, Destroyers: 1')",
+        "Show accuracy percentage (shots fired vs hits)",
+        "Show damage taken (craters created)",
+        "Stats displayed on LevelCompleteScreen",
         "npm run build passes without errors"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Uses Phaser cameras.main.shake() - cannon fire: 80ms/0.003, ship explosion: 200ms/0.008"
+      "passes": false,
+      "notes": "LevelCompleteScreen exists - extend with detailed stats tracking"
+    }
+  ],
+  "futurePhaseConcepts": [
+    {
+      "phase": 10,
+      "name": "Local Multiplayer",
+      "concepts": ["Split keyboard controls", "Territory vs territory combat", "Shared screen play", "Victory conditions for PvP"]
     },
     {
-      "id": "US-007",
-      "title": "Multiple Island Maps",
-      "description": "As a player, I want variety in the maps I play on.",
-      "acceptanceCriteria": [
-        "At least 3 different map generation presets (small island, archipelago, large island)",
-        "Map type changes each level or is randomly selected",
-        "All maps have valid castle placements and playable coastlines",
-        "npm run build passes without errors"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Three presets cycle per level: small (3-4 castles), large (5-7 castles), archipelago (3-5 islands with 4-6 castles)"
+      "phase": 11,
+      "name": "Power-ups & Special Abilities",
+      "concepts": ["Repair walls ability", "Rapid fire mode", "Shield generator", "Bomb cannon (area damage)"]
+    },
+    {
+      "phase": 12,
+      "name": "Mobile & Accessibility",
+      "concepts": ["Touch controls", "Responsive canvas sizing", "Color-blind friendly modes", "Pause/resume support"]
+    },
+    {
+      "phase": 13,
+      "name": "Online Features",
+      "concepts": ["Leaderboards", "Daily challenges", "Achievements", "Cloud save"]
     }
   ]
 }

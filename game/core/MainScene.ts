@@ -121,20 +121,72 @@ export class MainScene extends Phaser.Scene {
     this.soundManager = new SoundManager();
     this.effectsManager = new EffectsManager(this, TILE_SIZE);
 
+    // Set up ship hit callback for critical hit feedback
+    this.combatSystem.setOnShipHit((ship, damage, isCritical) => {
+      if (isCritical) {
+        // Critical hit feedback
+        this.soundManager.playCriticalHit();
+        this.effectsManager.createCriticalHit(
+          Math.floor(ship.position.x),
+          Math.floor(ship.position.y),
+          this.mapOffsetX,
+          this.mapOffsetY
+        );
+        // Extra screen shake for critical
+        this.cameras.main.shake(120, 0.006);
+      } else {
+        // Regular hit sound - wood crashing
+        this.soundManager.playShipHit();
+      }
+    });
+
     // Set up ship destroyed callback for score popups, sound, effects, and screen shake
-    this.combatSystem.setOnShipDestroyed((ship, points) => {
+    this.combatSystem.setOnShipDestroyed((ship, points, isCritical) => {
       const screenX = this.mapOffsetX + ship.position.x * TILE_SIZE;
       const screenY = this.mapOffsetY + ship.position.y * TILE_SIZE;
-      this.scorePopup.show(screenX, screenY, points, "ship");
-      this.soundManager.playShipExplosion();
+
+      // Show score popup with critical indicator
+      const label = isCritical ? "CRITICAL!" : ship.shipType;
+      this.scorePopup.show(screenX, screenY, points, label);
+
+      // Play explosion sound - boss gets special massive explosion
+      if (ship.shipType === "boss") {
+        this.soundManager.playBossExplosion();
+        // Extra strong shake for boss
+        this.cameras.main.shake(400, 0.02);
+      } else {
+        // Sound pitch varies by ship type
+        this.soundManager.playShipExplosion(ship.shipType);
+        // Strong screen shake for ship destruction (stronger for critical)
+        const shakeIntensity = isCritical ? 0.012 : 0.008;
+        this.cameras.main.shake(200, shakeIntensity);
+      }
+
+      // Visual explosion effect - size varies by ship type
       this.effectsManager.createShipExplosion(
         Math.floor(ship.position.x),
         Math.floor(ship.position.y),
         this.mapOffsetX,
-        this.mapOffsetY
+        this.mapOffsetY,
+        ship.shipType
       );
-      // Strong screen shake for ship destruction
-      this.cameras.main.shake(200, 0.008);
+    });
+
+    // Set up boss spawn callback for sound
+    this.combatSystem.setOnBossSpawn(() => {
+      this.soundManager.playBossSpawn();
+    });
+
+    // Set up player projectile water splash callback
+    this.combatSystem.setOnPlayerWaterSplash((gridX: number, gridY: number) => {
+      this.soundManager.playWaterSplash();
+      this.effectsManager.createWaterSplash(gridX, gridY, this.mapOffsetX, this.mapOffsetY);
+    });
+
+    // Set up wall destroyed callback for fire effect
+    this.combatSystem.setOnWallDestroyed((gridX: number, gridY: number) => {
+      this.soundManager.playWallFire();
+      this.effectsManager.createWallFire(gridX, gridY, this.mapOffsetX, this.mapOffsetY);
     });
 
     // Set up terrain impact callback for sound and effects
@@ -539,7 +591,8 @@ export class MainScene extends Phaser.Scene {
 
   private showLevelComplete(): void {
     this.soundManager.playVictory();
-    const breakdown = this.gameStateManager.getScoreBreakdown();
+    const combatStats = this.combatSystem.getCombatStats();
+    const breakdown = this.gameStateManager.getScoreBreakdown(combatStats);
     const stats = this.gameStateManager.getStats();
     this.levelCompleteScreen.show(
       stats.level,

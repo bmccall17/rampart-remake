@@ -44,7 +44,7 @@ export interface Cannon {
   maxHealth: number;
 }
 
-export type ShipType = "scout" | "destroyer" | "frigate";
+export type ShipType = "scout" | "destroyer" | "frigate" | "boss";
 
 export interface Ship {
   id: string;
